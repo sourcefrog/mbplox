@@ -55,6 +55,7 @@ impl<'s> Iterator for Scanner<'s> {
                 return self.emit(TokenType::Eof);
             }
             let ch = self.chars.take().unwrap();
+
             let token_type = match ch {
                 '\n' => {
                     self.line += 1;
@@ -155,9 +156,8 @@ where
         Some(&self.buf[0])
     }
 
-    #[allow(unused)]
     fn is_empty(&mut self) -> bool {
-        self.peek().is_some()
+        !self.peek().is_some()
     }
 }
 

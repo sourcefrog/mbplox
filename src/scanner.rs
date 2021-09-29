@@ -184,7 +184,7 @@ where
     }
 
     fn is_empty(&mut self) -> bool {
-        !self.peek().is_some()
+        self.peek().is_none()
     }
 }
 

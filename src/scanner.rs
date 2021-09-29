@@ -66,6 +66,16 @@ impl<'s> Iterator for Scanner<'s> {
                 '*' => TokenType::Star,
                 '-' => TokenType::Minus,
                 '.' => TokenType::Dot,
+                '/' if self.chars.peek() == Some(&'/') => {
+                    while let Some(cc) = self.chars.take() {
+                        if cc == '\n' {
+                            self.line += 1;
+                            break;
+                        }
+                    }
+                    continue; // drop the comment
+                }
+                '/' => TokenType::Dot,
                 '0'..='9' => {
                     let mut s = String::from(ch);
                     while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
@@ -78,7 +88,7 @@ impl<'s> Iterator for Scanner<'s> {
                             .map(|cc| cc.is_ascii_digit())
                             .unwrap_or_default()
                     {
-                        assert_eq!(self.chars.take(), Some('.'));
+                        self.chars.take_exactly(&'.').unwrap();
                         s.push('.');
                         while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
                             s.push(cc)
@@ -112,6 +122,7 @@ impl<'s> Scanner<'s> {
 struct Peek<C, I>
 where
     I: Iterator<Item = C>,
+    C: PartialEq,
 {
     inner: I,
     buf: Vec<C>,
@@ -120,6 +131,7 @@ where
 impl<C, I> Peek<C, I>
 where
     I: Iterator<Item = C>,
+    C: PartialEq,
 {
     fn new(inner: I) -> Peek<C, I> {
         Peek {
@@ -134,6 +146,10 @@ where
         } else {
             Some(self.buf.remove(0))
         }
+    }
+
+    fn take_exactly(&mut self, c: &C) -> Option<C> {
+        self.take_if(|cc| *cc == *c)
     }
 
     fn take_if<F>(&mut self, f: F) -> Option<C>
@@ -205,6 +221,41 @@ mod test {
                 .map(|t| t.token_type)
                 .collect::<Vec<TokenType>>(),
             vec![TokenType::Number(3.1415),]
+        );
+    }
+
+    #[test]
+    fn skip_comments() {
+        assert_eq!(
+            scan("1\n// two would be here\n\n3.000\n\n// the end!\n").collect::<Vec<Token>>(),
+            vec![
+                Token {
+                    token_type: TokenType::Number(1.0),
+                    line: 1,
+                    lexeme: "1".to_owned(),
+                },
+                Token {
+                    token_type: TokenType::Number(3.0),
+                    line: 4,
+                    lexeme: "3.000".to_owned()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn just_a_comment() {
+        assert_eq!(
+            scan("// nothing else, not even a newline").collect::<Vec<Token>>(),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn just_some_comments() {
+        assert_eq!(
+            scan("// a comment\n\n\n// then another\n").collect::<Vec<Token>>(),
+            vec![]
         );
     }
 }

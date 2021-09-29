@@ -116,3 +116,25 @@ impl<'s> Scanner<'s> {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn can_scan_integer() {
+        itertools::assert_equal(
+            scan("12345"),
+            [
+                Token {
+                    token_type: TokenType::Number(12345.0),
+                    line: 1,
+                },
+                Token {
+                    token_type: TokenType::Eof,
+                    line: 1,
+                },
+            ],
+        );
+    }
+}

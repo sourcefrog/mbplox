@@ -9,6 +9,7 @@ pub enum TokenType {
     Plus,
     Minus,
     Star,
+    Dot,
 
     // Literals
     // String(String),
@@ -22,6 +23,8 @@ pub struct Token {
     token_type: TokenType,
     /// 1-based source line where it occurs.
     line: usize,
+    /// Literal content of the lexeme.
+    lexeme: String,
 }
 
 /// Return an iterator over the tokens in the source.
@@ -52,9 +55,12 @@ impl<'s> Iterator for Scanner<'s> {
                 // Return one Eof and then stop the iterator.
                 // (Maybe it should just stop?)
                 self.past_eof = true;
-                return self.emit(TokenType::Eof);
+                return self.emit(TokenType::Eof, String::new());
             }
             let ch = self.chars.take().unwrap();
+            // Maybe collecting the lexeme should be integrated with `Peek`,
+            // with some kind of reset at the start of the token?
+            let mut lexeme = String::from(ch);
 
             let token_type = match ch {
                 '\n' => {
@@ -67,32 +73,41 @@ impl<'s> Iterator for Scanner<'s> {
                 '+' => TokenType::Plus,
                 '*' => TokenType::Star,
                 '-' => TokenType::Minus,
+                '.' => TokenType::Dot,
                 '0'..='9' => {
-                    let mut s = String::new();
-                    s.push(ch);
+                    let mut s = String::from(ch);
                     while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
                         s.push(cc)
                     }
-                    if self.chars.take_if(|&c| c == '.').is_some() {
+                    if self.chars.peek() == Some(&'.')
+                        && self
+                            .chars
+                            .peek_nth(1)
+                            .map(|cc| cc.is_ascii_digit())
+                            .unwrap_or_default()
+                    {
+                        assert_eq!(self.chars.take(), Some('.'));
                         s.push('.');
                         while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
                             s.push(cc)
                         }
                     }
                     let val: f64 = s.parse().unwrap();
+                    lexeme = s;
                     TokenType::Number(val)
                 }
                 other => panic!("unhandled character {:?}", other),
             };
-            return self.emit(token_type);
+            return self.emit(token_type, lexeme);
         }
     }
 }
 
 impl<'s> Scanner<'s> {
-    fn emit(&self, token_type: TokenType) -> Option<Token> {
+    fn emit(&self, token_type: TokenType, lexeme: String) -> Option<Token> {
         Some(Token {
             token_type,
+            lexeme,
             line: self.line,
         })
     }
@@ -146,14 +161,18 @@ where
     }
 
     fn peek(&mut self) -> Option<&C> {
-        if self.buf.is_empty() {
+        self.peek_nth(0)
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<&C> {
+        while self.buf.len() <= n {
             if let Some(c) = self.inner.next() {
                 self.buf.push(c)
             } else {
                 return None;
             }
         }
-        Some(&self.buf[0])
+        Some(&self.buf[n])
     }
 
     fn is_empty(&mut self) -> bool {
@@ -173,12 +192,30 @@ mod test {
                 Token {
                     token_type: TokenType::Number(12345.0),
                     line: 1,
+                    lexeme: "12345".to_owned(),
                 },
                 Token {
                     token_type: TokenType::Eof,
                     line: 1,
+                    lexeme: "".to_owned(),
                 },
             ],
+        );
+    }
+
+    #[test]
+    fn integer_followed_by_dot_is_not_float() {
+        assert_eq!(
+            scan("1234.").map(|t| t.token_type).collect::<Vec<TokenType>>(),
+            vec![TokenType::Number(1234.0), TokenType::Dot, TokenType::Eof]
+        );
+    }
+
+    #[test]
+    fn decimal_float() {
+        assert_eq!(
+            scan("3.1415").map(|t| t.token_type).collect::<Vec<TokenType>>(),
+            vec![TokenType::Number(3.1415), TokenType::Eof]
         );
     }
 }

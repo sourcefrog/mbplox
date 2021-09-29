@@ -27,9 +27,8 @@ pub struct Token {
 }
 
 /// Return an iterator over the tokens in the source.
-pub fn scan<'s>(source: &'s str) -> impl Iterator<Item = Token> + 's {
+pub fn scan(source: &str) -> impl Iterator<Item = Token> + '_ {
     Scanner {
-        // source,
         chars: Peek::new(source.chars()),
         line: 1,
     }

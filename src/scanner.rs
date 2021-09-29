@@ -52,7 +52,7 @@ impl<'s> Iterator for Scanner<'s> {
             let ch = self.chars.take().unwrap();
             // Maybe collecting the lexeme should be integrated with `Peek`,
             // with some kind of reset at the start of the token?
-            let mut lexeme = String::from(ch);
+            let lexeme = String::from(ch);
 
             let token_type = match ch {
                 '\n' => {
@@ -76,42 +76,44 @@ impl<'s> Iterator for Scanner<'s> {
                     continue; // drop the comment
                 }
                 '/' => TokenType::Dot,
-                '0'..='9' => {
-                    let mut s = String::from(ch);
-                    while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
-                        s.push(cc)
-                    }
-                    if self.chars.peek() == Some(&'.')
-                        && self
-                            .chars
-                            .peek_nth(1)
-                            .map(|cc| cc.is_ascii_digit())
-                            .unwrap_or_default()
-                    {
-                        self.chars.take_exactly(&'.').unwrap();
-                        s.push('.');
-                        while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
-                            s.push(cc)
-                        }
-                    }
-                    let val: f64 = s.parse().unwrap();
-                    lexeme = s;
-                    TokenType::Number(val)
-                }
+                '0'..='9' => return self.number(ch),
                 other => panic!("unhandled character {:?}", other),
             };
-            return self.emit(token_type, lexeme);
+            return self.make_token(token_type, lexeme);
         }
     }
 }
 
 impl<'s> Scanner<'s> {
-    fn emit(&self, token_type: TokenType, lexeme: String) -> Option<Token> {
+    fn make_token(&self, token_type: TokenType, lexeme: String) -> Option<Token> {
         Some(Token {
             token_type,
             lexeme,
             line: self.line,
         })
+    }
+
+    fn number(&mut self, first_char: char) -> Option<Token> {
+        let mut s = String::from(first_char);
+        while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
+            s.push(cc)
+        }
+        if self.chars.peek() == Some(&'.')
+            && self
+                .chars
+                .peek_nth(1)
+                .map(|cc| cc.is_ascii_digit())
+                .unwrap_or_default()
+        {
+            self.chars.take_exactly(&'.').unwrap();
+            s.push('.');
+            while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
+                s.push(cc)
+            }
+        }
+        let val: f64 = s.parse().unwrap();
+
+        self.make_token(TokenType::Number(val), s)
     }
 }
 

@@ -15,7 +15,6 @@ pub enum TokenType {
     // String(String),
     Number(f64),
     // Identifier(String),
-    Eof,
 }
 
 #[derive(Debug, PartialEq)]
@@ -33,7 +32,6 @@ pub fn scan<'s>(source: &'s str) -> impl Iterator<Item = Token> + 's {
         // source,
         chars: Peek::new(source.chars()),
         line: 1,
-        past_eof: false,
     }
 }
 
@@ -41,7 +39,6 @@ struct Scanner<'s> {
     chars: Peek<char, std::str::Chars<'s>>,
     // source: &'s str,
     line: usize,
-    past_eof: bool,
 }
 
 impl<'s> Iterator for Scanner<'s> {
@@ -49,13 +46,8 @@ impl<'s> Iterator for Scanner<'s> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.past_eof {
+            if self.chars.is_empty() {
                 return None;
-            } else if self.chars.is_empty() {
-                // Return one Eof and then stop the iterator.
-                // (Maybe it should just stop?)
-                self.past_eof = true;
-                return self.emit(TokenType::Eof, String::new());
             }
             let ch = self.chars.take().unwrap();
             // Maybe collecting the lexeme should be integrated with `Peek`,
@@ -188,34 +180,31 @@ mod test {
     fn can_scan_integer() {
         itertools::assert_equal(
             scan("12345"),
-            [
-                Token {
-                    token_type: TokenType::Number(12345.0),
-                    line: 1,
-                    lexeme: "12345".to_owned(),
-                },
-                Token {
-                    token_type: TokenType::Eof,
-                    line: 1,
-                    lexeme: "".to_owned(),
-                },
-            ],
+            [Token {
+                token_type: TokenType::Number(12345.0),
+                line: 1,
+                lexeme: "12345".to_owned(),
+            }],
         );
     }
 
     #[test]
     fn integer_followed_by_dot_is_not_float() {
         assert_eq!(
-            scan("1234.").map(|t| t.token_type).collect::<Vec<TokenType>>(),
-            vec![TokenType::Number(1234.0), TokenType::Dot, TokenType::Eof]
+            scan("1234.")
+                .map(|t| t.token_type)
+                .collect::<Vec<TokenType>>(),
+            vec![TokenType::Number(1234.0), TokenType::Dot,]
         );
     }
 
     #[test]
     fn decimal_float() {
         assert_eq!(
-            scan("3.1415").map(|t| t.token_type).collect::<Vec<TokenType>>(),
-            vec![TokenType::Number(3.1415), TokenType::Eof]
+            scan("3.1415")
+                .map(|t| t.token_type)
+                .collect::<Vec<TokenType>>(),
+            vec![TokenType::Number(3.1415),]
         );
     }
 }

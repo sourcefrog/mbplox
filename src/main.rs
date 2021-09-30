@@ -20,7 +20,7 @@ fn run_file(path: &Path) -> Result<()> {
 }
 
 fn run(source: &str) -> Result<()> {
-    let tokens: Vec<Token> = scanner::scan(source).collect();
+    let tokens: Vec<Token> = scanner::lex(source).collect();
     dbg!(tokens);
     Ok(())
 }

@@ -27,20 +27,17 @@ pub struct Token {
 }
 
 /// Return an iterator over the tokens in the source.
-pub fn scan(source: &str) -> impl Iterator<Item = Token> + '_ {
-    Scanner {
-        chars: Peek::new(source.chars()),
-        line: 1,
+pub fn lex(source: &str) -> impl Iterator<Item = Token> + '_ {
+    Lexer {
+        chars: Scan::new(source.chars(), |c: &char| *c == '\n'),
     }
 }
 
-struct Scanner<'s> {
-    chars: Peek<char, std::str::Chars<'s>>,
-    // source: &'s str,
-    line: usize,
+struct Lexer<'s> {
+    chars: Scan<char, std::str::Chars<'s>>,
 }
 
-impl<'s> Iterator for Scanner<'s> {
+impl<'s> Iterator for Lexer<'s> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -51,11 +48,7 @@ impl<'s> Iterator for Scanner<'s> {
             self.chars.start_token();
             let ch = self.chars.take().unwrap();
             let token_type = match ch {
-                '\n' => {
-                    self.line += 1;
-                    continue;
-                }
-                ' ' | '\t' | '\r' => {
+                '\n' | ' ' | '\t' | '\r' => {
                     continue;
                 }
                 '+' => Tok::Plus,
@@ -65,7 +58,6 @@ impl<'s> Iterator for Scanner<'s> {
                 '/' if self.chars.peek() == Some(&'/') => {
                     while let Some(cc) = self.chars.take() {
                         if cc == '\n' {
-                            self.line += 1;
                             break;
                         }
                     }
@@ -80,12 +72,12 @@ impl<'s> Iterator for Scanner<'s> {
     }
 }
 
-impl<'s> Scanner<'s> {
+impl<'s> Lexer<'s> {
     fn make_token(&self, tok: Tok) -> Option<Token> {
         Some(Token {
             tok,
             lexeme: self.chars.current_token().collect(),
-            line: self.line,
+            line: self.chars.line_number(),
         })
     }
 
@@ -114,7 +106,7 @@ impl<'s> Scanner<'s> {
 /// grammar.
 ///
 /// Beyond [std::iter::Peekable] this allows looking more than one item ahead.
-struct Peek<C, I>
+struct Scan<C, I>
 where
     I: Iterator<Item = C>,
     C: PartialEq + Clone,
@@ -122,18 +114,22 @@ where
     inner: I,
     buf: Vec<C>,
     current_token: Vec<C>,
+    is_newline: fn(&C) -> bool,
+    line_number: usize,
 }
 
-impl<C, I> Peek<C, I>
+impl<C, I> Scan<C, I>
 where
     I: Iterator<Item = C>,
     C: PartialEq + Clone,
 {
-    fn new(inner: I) -> Peek<C, I> {
-        Peek {
+    fn new(inner: I, is_newline: fn(&C) -> bool) -> Scan<C, I> {
+        Scan {
             inner,
             buf: Vec::new(),
             current_token: Vec::new(),
+            is_newline,
+            line_number: 1,
         }
     }
 
@@ -146,14 +142,25 @@ where
         self.current_token.iter()
     }
 
+    /// Consume and return one atom.
+    ///
+    /// All consumption should go through here to maintain invariants, including
+    /// line numbering and accumulating the current token.
     fn take(&mut self) -> Option<C> {
-        if self.buf.is_empty() {
-            self.inner.next()
+        let c = if self.buf.is_empty() {
+            self.inner.next()?
         } else {
-            let c = self.buf.remove(0);
-            self.current_token.push(c.clone());
-            Some(c)
+            self.buf.remove(0)
+        };
+        if (self.is_newline)(&c) {
+            self.line_number += 1;
         }
+        self.current_token.push(c.clone());
+        Some(c)
+    }
+
+    fn line_number(&self) -> usize {
+        self.line_number
     }
 
     pub fn take_while(&mut self, f: fn(&C) -> bool) {
@@ -215,7 +222,7 @@ mod test {
     #[test]
     fn can_scan_integer() {
         itertools::assert_equal(
-            scan("12345"),
+            lex("12345"),
             [Token {
                 tok: Tok::Number(12345.0),
                 line: 1,
@@ -227,7 +234,7 @@ mod test {
     #[test]
     fn integer_followed_by_dot_is_not_float() {
         assert_eq!(
-            scan("1234.").map(|t| t.tok).collect::<Vec<Tok>>(),
+            lex("1234.").map(|t| t.tok).collect::<Vec<Tok>>(),
             vec![Tok::Number(1234.0), Tok::Dot,]
         );
     }
@@ -235,7 +242,7 @@ mod test {
     #[test]
     fn decimal_float() {
         assert_eq!(
-            scan("3.1415").map(|t| t.tok).collect::<Vec<Tok>>(),
+            lex("3.1415").map(|t| t.tok).collect::<Vec<Tok>>(),
             vec![Tok::Number(3.1415),]
         );
     }
@@ -243,7 +250,7 @@ mod test {
     #[test]
     fn skip_comments() {
         assert_eq!(
-            scan("1\n// two would be here\n\n3.000\n\n// the end!\n").collect::<Vec<Token>>(),
+            lex("1\n// two would be here\n\n3.000\n\n// the end!\n").collect::<Vec<Token>>(),
             vec![
                 Token {
                     tok: Tok::Number(1.0),
@@ -262,7 +269,7 @@ mod test {
     #[test]
     fn just_a_comment() {
         assert_eq!(
-            scan("// nothing else, not even a newline").collect::<Vec<Token>>(),
+            lex("// nothing else, not even a newline").collect::<Vec<Token>>(),
             vec![]
         );
     }
@@ -270,7 +277,7 @@ mod test {
     #[test]
     fn just_some_comments() {
         assert_eq!(
-            scan("// a comment\n\n\n// then another\n").collect::<Vec<Token>>(),
+            lex("// a comment\n\n\n// then another\n").collect::<Vec<Token>>(),
             vec![]
         );
     }

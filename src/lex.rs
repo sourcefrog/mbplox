@@ -33,12 +33,12 @@ pub struct Token {
 /// Return an iterator over the tokens in the source.
 pub fn lex(source: &str) -> impl Iterator<Item = Token> + '_ {
     Lexer {
-        chars: Scan::new(source.chars()),
+        scan: Scan::new(source.chars()),
     }
 }
 
 struct Lexer<'s> {
-    chars: Scan<char, std::str::Chars<'s>>,
+    scan: Scan<char, std::str::Chars<'s>>,
 }
 
 impl<'s> Iterator for Lexer<'s> {
@@ -46,11 +46,11 @@ impl<'s> Iterator for Lexer<'s> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.chars.is_empty() {
+            if self.scan.is_empty() {
                 return None;
             }
-            self.chars.start_token();
-            let ch = self.chars.take().unwrap();
+            self.scan.start_token();
+            let ch = self.scan.take().unwrap();
             let token_type = match ch {
                 '\n' | ' ' | '\t' | '\r' => {
                     continue;
@@ -59,8 +59,8 @@ impl<'s> Iterator for Lexer<'s> {
                 '*' => Tok::Star,
                 '-' => Tok::Minus,
                 '.' => Tok::Dot,
-                '/' if self.chars.peek() == Some(&'/') => {
-                    self.chars.take_until(|cc| *cc == '\n');
+                '/' if self.scan.peek() == Some(&'/') => {
+                    self.scan.take_until(|cc| *cc == '\n');
                     continue; // drop the comment
                 }
                 '/' => Tok::Slash,
@@ -79,43 +79,39 @@ impl<'s> Lexer<'s> {
     fn make_token(&self, tok: Tok) -> Option<Token> {
         Some(Token {
             tok,
-            lexeme: self.chars.current_token(),
-            line: self.chars.current_token_start_line(),
+            lexeme: self.scan.current_token(),
+            line: self.scan.current_token_start_line(),
         })
     }
 
     fn number(&mut self) -> Tok {
-        self.chars.take_while(|c| c.is_ascii_digit());
-        match self.chars.peek2() {
+        self.scan.take_while(|c| c.is_ascii_digit());
+        match self.scan.peek2() {
             Some(('.', cc)) if cc.is_ascii_digit() => {
-                self.chars.take_exactly(&'.').unwrap();
-                self.chars.take_while(|c| c.is_ascii_digit());
+                self.scan.take_exactly(&'.').unwrap();
+                self.scan.take_while(|c| c.is_ascii_digit());
             }
             _ => (),
         }
-        let val: f64 = self
-            .chars
-            .current_token::<String>()
-            .parse()
-            .unwrap();
+        let val: f64 = self.scan.current_token::<String>().parse().unwrap();
         Tok::Number(val)
     }
 
     fn string(&mut self) -> Tok {
         // TODO: Handle backslash escapes.
         // TODO: Error if the string is unterminated.
-        self.chars.take_until(|c| *c == '"');
+        self.scan.take_until(|c| *c == '"');
         // Omit the starting and ending quotes
-        let ct  = self.chars.current_token::<Vec<char>>();
+        let ct = self.scan.current_token::<Vec<char>>();
         let l = ct.len();
-        let s: String = ct[1..(l-1)].iter().collect();
+        let s: String = ct[1..(l - 1)].iter().collect();
         Tok::String(s)
     }
 
     fn word(&mut self) -> Tok {
-        self.chars
+        self.scan
             .take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
-        let s: String = self.chars.current_token();
+        let s: String = self.scan.current_token();
         match s.as_str() {
             "true" => Tok::True,
             "false" => Tok::False,

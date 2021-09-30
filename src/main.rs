@@ -10,7 +10,6 @@ mod lex;
 mod scan;
 
 use argh::FromArgs;
-use lex::Token;
 
 #[derive(FromArgs)]
 /// Run a Lox program.
@@ -40,7 +39,7 @@ fn run_file(path: &Path) -> Result<()> {
 }
 
 fn run(source: &str) -> Result<()> {
-    let tokens: Vec<Token> = lex::lex(source).collect();
-    dbg!(tokens);
+    let lexer = lex::Lexer::new(source);
+    dbg!(lexer.tokens());
     Ok(())
 }

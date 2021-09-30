@@ -4,7 +4,7 @@
 
 use crate::scan::Scan;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Tok {
     Plus,
     Minus,
@@ -21,7 +21,7 @@ pub enum Tok {
     Identifier(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     tok: Tok,
     /// 1-based source line where it occurs.
@@ -30,28 +30,32 @@ pub struct Token {
     lexeme: String,
 }
 
-/// Return an iterator over the tokens in the source.
-pub fn lex(source: &str) -> impl Iterator<Item = Token> + '_ {
-    Lexer {
-        scan: Scan::new(source.chars()),
-    }
-}
-
-struct Lexer<'s> {
+pub struct Lexer<'s> {
     scan: Scan<char, std::str::Chars<'s>>,
+    tokens: Vec<Token>,
 }
 
-impl<'s> Iterator for Lexer<'s> {
-    type Item = Token;
+impl<'s> Lexer<'s> {
+    /// Return an iterator over the tokens in the source.
+    pub fn new(source: &str) -> Lexer {
+        let mut lex = Lexer {
+            scan: Scan::new(source.chars()),
+            tokens: Vec::new(),
+        };
+        lex.lex();
+        lex
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.scan.is_empty() {
-                return None;
-            }
+    /// Retrieve resulting tokens.
+    pub fn tokens(&self) -> &[Token] {
+        &self.tokens
+    }
+
+    fn lex(&mut self) {
+        while !self.scan.is_empty() {
             self.scan.start_token();
             let ch = self.scan.take().unwrap();
-            let token_type = match ch {
+            let tok = match ch {
                 '\n' | ' ' | '\t' | '\r' => {
                     continue;
                 }
@@ -70,18 +74,12 @@ impl<'s> Iterator for Lexer<'s> {
                 '_' => self.word(),
                 other => panic!("unhandled character {:?}", other),
             };
-            return self.make_token(token_type);
+            self.tokens.push(Token {
+                tok,
+                lexeme: self.scan.current_token(),
+                line: self.scan.current_token_start_line(),
+            });
         }
-    }
-}
-
-impl<'s> Lexer<'s> {
-    fn make_token(&self, tok: Tok) -> Option<Token> {
-        Some(Token {
-            tok,
-            lexeme: self.scan.current_token(),
-            line: self.scan.current_token_start_line(),
-        })
     }
 
     fn number(&mut self) -> Tok {
@@ -128,11 +126,23 @@ mod test {
 
     use super::*;
 
+    fn lex_tokens(s: &str) -> Vec<Token> {
+        Lexer::new(s).tokens().to_vec()
+    }
+
+    fn lex_toks<'s>(s: &'s str) -> Vec<Tok> {
+        Lexer::new(s)
+            .tokens()
+            .iter()
+            .map(|t| t.tok.clone())
+            .collect()
+    }
+
     #[test]
     fn can_scan_integer() {
-        itertools::assert_equal(
-            lex("12345"),
-            [Token {
+        assert_eq!(
+            lex_tokens("12345"),
+            &[Token {
                 tok: Tok::Number(12345.0),
                 line: 1,
                 lexeme: "12345".to_owned(),
@@ -142,24 +152,18 @@ mod test {
 
     #[test]
     fn integer_followed_by_dot_is_not_float() {
-        assert_eq!(
-            lex("1234.").map(|t| t.tok).collect::<Vec<Tok>>(),
-            vec![Tok::Number(1234.0), Tok::Dot,]
-        );
+        assert_eq!(lex_toks("1234."), vec![Tok::Number(1234.0), Tok::Dot,]);
     }
 
     #[test]
     fn decimal_float() {
-        assert_eq!(
-            lex("3.1415").map(|t| t.tok).collect::<Vec<Tok>>(),
-            vec![Tok::Number(3.1415),]
-        );
+        assert_eq!(lex_toks("3.1415"), vec![Tok::Number(3.1415),]);
     }
 
     #[test]
     fn skip_comments() {
         assert_eq!(
-            lex("1\n// two would be here\n\n3.000\n\n// the end!\n").collect::<Vec<Token>>(),
+            lex_tokens("1\n// two would be here\n\n3.000\n\n// the end!\n"),
             vec![
                 Token {
                     tok: Tok::Number(1.0),
@@ -177,24 +181,18 @@ mod test {
 
     #[test]
     fn just_a_comment() {
-        assert_eq!(
-            lex("// nothing else, not even a newline").collect::<Vec<Token>>(),
-            vec![]
-        );
+        assert_eq!(lex_tokens("// nothing else, not even a newline"), vec![]);
     }
 
     #[test]
     fn just_some_comments() {
-        assert_eq!(
-            lex("// a comment\n\n\n// then another\n").collect::<Vec<Token>>(),
-            vec![]
-        );
+        assert_eq!(lex_tokens("// a comment\n\n\n// then another\n"), vec![]);
     }
 
     #[test]
     fn simple_string() {
         assert_eq!(
-            lex(r#""hello Lox?""#).collect::<Vec<Token>>(),
+            lex_tokens(r#""hello Lox?""#),
             vec![Token {
                 tok: Tok::String("hello Lox?".to_owned()),
                 line: 1,
@@ -207,7 +205,7 @@ mod test {
     fn multi_line_string_has_line_number_of_start() {
         let src = "\"one\nokapi\ntwo\n\"";
         assert_eq!(
-            lex(src).collect::<Vec<Token>>(),
+            lex_tokens(src),
             vec![Token {
                 tok: Tok::String("one\nokapi\ntwo\n".to_owned()),
                 line: 1,
@@ -221,14 +219,14 @@ mod test {
     fn unterminated_string_errors() {
         let src = "\"going along...";
         // TODO: Give a nice error rather than panic
-        let _v = lex(src).collect::<Vec<Token>>();
+        let _v = lex_tokens(src);
     }
 
     #[test]
     fn words_and_keywords() {
         let src = "true false maybe __secret__";
         assert_eq!(
-            lex(src).map(|token| token.tok).collect::<Vec<Tok>>(),
+            lex_toks(src),
             [
                 Tok::True,
                 Tok::False,
@@ -242,7 +240,7 @@ mod test {
     fn operators() {
         let src = "+-*/";
         assert_eq!(
-            lex(src).map(|token| token.tok).collect::<Vec<Tok>>(),
+            lex_toks(src),
             [Tok::Plus, Tok::Minus, Tok::Star, Tok::Slash]
         );
     }

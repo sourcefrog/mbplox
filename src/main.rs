@@ -6,9 +6,10 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 
-mod scanner;
+mod lex;
+mod scan;
 
-use scanner::Token;
+use lex::Token;
 
 fn main() -> Result<()> {
     let mut args = std::env::args();
@@ -20,7 +21,7 @@ fn run_file(path: &Path) -> Result<()> {
 }
 
 fn run(source: &str) -> Result<()> {
-    let tokens: Vec<Token> = scanner::lex(source).collect();
+    let tokens: Vec<Token> = lex::lex(source).collect();
     dbg!(tokens);
     Ok(())
 }

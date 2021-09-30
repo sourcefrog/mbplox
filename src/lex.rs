@@ -1,8 +1,8 @@
 // Copyright 2021 Martin Pool
 
-//! Scan text to tokens.
+//! Lex text into tokens.
 
-// use crate::Result;
+use crate::scan::Scan;
 
 #[derive(Debug, PartialEq)]
 pub enum Tok {
@@ -80,7 +80,7 @@ impl<'s> Lexer<'s> {
         Some(Token {
             tok,
             lexeme: self.chars.current_token().collect(),
-            line: self.chars.token_start_line,
+            line: self.chars.current_token_start_line(),
         })
     }
 
@@ -103,10 +103,12 @@ impl<'s> Lexer<'s> {
     }
 
     fn string(&mut self) -> Tok {
+        // TODO: Handle backslash escapes.
+        // TODO: Error if the string is unterminated.
         self.chars.take_until(|c| *c == '"');
-        // Skip the quotes
-        let l = self.chars.current_token.len();
-        let s: String = self.chars.current_token[1..(l - 1)].iter().collect();
+        // Omit the starting and ending quotes
+        let l = self.chars.current_token().count();
+        let s: String = self.chars.current_token().skip(1).take(l-2).collect();
         Tok::String(s)
     }
 
@@ -119,137 +121,6 @@ impl<'s> Lexer<'s> {
             "false" => Tok::False,
             _ => Tok::Identifier(s),
         }
-    }
-}
-
-/// Iterator adapter allowing arbitrary-length peeking ahead.
-///
-/// Provides low-level char parsing without knowing anything specific about the
-/// grammar.
-///
-/// Beyond [std::iter::Peekable] this allows looking more than one item ahead.
-struct Scan<C, I>
-where
-    I: Iterator<Item = C>,
-    C: PartialEq + Clone + IsNewline,
-{
-    inner: I,
-    buf: Vec<C>,
-    current_token: Vec<C>,
-    token_start_line: usize,
-    line_number: usize,
-}
-
-impl<C, I> Scan<C, I>
-where
-    I: Iterator<Item = C>,
-    C: PartialEq + Clone + IsNewline,
-{
-    fn new(inner: I) -> Scan<C, I> {
-        Scan {
-            inner,
-            buf: Vec::new(),
-            current_token: Vec::new(),
-            line_number: 1,
-            token_start_line: 1,
-        }
-    }
-
-    fn start_token(&mut self) {
-        self.current_token.clear();
-        self.token_start_line = self.line_number;
-    }
-
-    /// Return all the atoms recognized since the last [start_token].
-    fn current_token(&self) -> impl Iterator<Item = &C> {
-        self.current_token.iter()
-    }
-
-    /// Consume and return one atom.
-    ///
-    /// All consumption should go through here to maintain invariants, including
-    /// line numbering and accumulating the current token.
-    fn take(&mut self) -> Option<C> {
-        let c = if self.buf.is_empty() {
-            self.inner.next()?
-        } else {
-            self.buf.remove(0)
-        };
-        if c.is_newline() {
-            self.line_number += 1;
-        }
-        self.current_token.push(c.clone());
-        Some(c)
-    }
-
-    fn take_if<F>(&mut self, f: F) -> Option<C>
-    where
-        F: Fn(&C) -> bool,
-    {
-        match self.peek() {
-            None => None,
-            Some(c) => {
-                if f(c) {
-                    self.take()
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    pub fn take_while(&mut self, f: fn(&C) -> bool) {
-        while self.take_if(f).is_some() {}
-    }
-
-    /// Take characters up to and including a terminator.
-    pub fn take_until(&mut self, f: fn(&C) -> bool) {
-        while let Some(c) = self.take() {
-            if f(&c) {
-                break;
-            }
-        }
-    }
-
-    fn take_exactly(&mut self, c: &C) -> Option<C> {
-        self.take_if(|cc| *cc == *c)
-    }
-
-    fn peek(&mut self) -> Option<&C> {
-        self.peek_nth(0)
-    }
-
-    fn peek2(&mut self) -> Option<(&C, &C)> {
-        if self.peek_nth(1).is_some() {
-            Some((&self.buf[0], &self.buf[1]))
-        } else {
-            None
-        }
-    }
-
-    fn peek_nth(&mut self, n: usize) -> Option<&C> {
-        while self.buf.len() <= n {
-            if let Some(c) = self.inner.next() {
-                self.buf.push(c)
-            } else {
-                return None;
-            }
-        }
-        Some(&self.buf[n])
-    }
-
-    fn is_empty(&mut self) -> bool {
-        self.peek().is_none()
-    }
-}
-
-trait IsNewline {
-    fn is_newline(&self) -> bool;
-}
-
-impl IsNewline for char {
-    fn is_newline(&self) -> bool {
-        *self == '\n'
     }
 }
 

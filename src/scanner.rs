@@ -56,11 +56,7 @@ impl<'s> Iterator for Lexer<'s> {
                 '-' => Tok::Minus,
                 '.' => Tok::Dot,
                 '/' if self.chars.peek() == Some(&'/') => {
-                    while let Some(cc) = self.chars.take() {
-                        if cc == '\n' {
-                            break;
-                        }
-                    }
+                    self.chars.take_until(|cc| *cc == '\n');
                     continue; // drop the comment
                 }
                 '/' => Tok::Dot,
@@ -163,17 +159,9 @@ where
         self.line_number
     }
 
-    pub fn take_while(&mut self, f: fn(&C) -> bool) {
-        while self.take_if(f).is_some() {}
-    }
-
-    fn take_exactly(&mut self, c: &C) -> Option<C> {
-        self.take_if(|cc| *cc == *c)
-    }
-
     fn take_if<F>(&mut self, f: F) -> Option<C>
     where
-        F: FnOnce(&C) -> bool,
+        F: Fn(&C) -> bool,
     {
         match self.peek() {
             None => None,
@@ -185,6 +173,23 @@ where
                 }
             }
         }
+    }
+
+    pub fn take_while(&mut self, f: fn(&C) -> bool) {
+        while self.take_if(f).is_some() {}
+    }
+
+    /// Take characters up to and including a terminator.
+    pub fn take_until(&mut self, f: fn(&C) -> bool) {
+        while let Some(c) = self.take() {
+            if f(&c) {
+                break;
+            }
+        }
+    }
+
+    fn take_exactly(&mut self, c: &C) -> Option<C> {
+        self.take_if(|cc| *cc == *c)
     }
 
     fn peek(&mut self) -> Option<&C> {

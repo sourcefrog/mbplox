@@ -42,8 +42,11 @@ where
     }
 
     /// Return all the atoms recognized since the last [start_token].
-    pub fn current_token(&self) -> impl Iterator<Item = &C> {
-        self.current_token.iter()
+    pub fn current_token<S>(&self) -> S
+    where
+        S: std::iter::FromIterator<C>,
+    {
+        self.current_token.iter().cloned().collect::<S>()
     }
 
     pub fn current_token_start_line(&self) -> usize {

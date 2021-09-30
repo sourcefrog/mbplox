@@ -79,7 +79,7 @@ impl<'s> Lexer<'s> {
     fn make_token(&self, tok: Tok) -> Option<Token> {
         Some(Token {
             tok,
-            lexeme: self.chars.current_token().collect(),
+            lexeme: self.chars.current_token(),
             line: self.chars.current_token_start_line(),
         })
     }
@@ -95,8 +95,7 @@ impl<'s> Lexer<'s> {
         }
         let val: f64 = self
             .chars
-            .current_token()
-            .collect::<String>()
+            .current_token::<String>()
             .parse()
             .unwrap();
         Tok::Number(val)
@@ -107,15 +106,16 @@ impl<'s> Lexer<'s> {
         // TODO: Error if the string is unterminated.
         self.chars.take_until(|c| *c == '"');
         // Omit the starting and ending quotes
-        let l = self.chars.current_token().count();
-        let s: String = self.chars.current_token().skip(1).take(l - 2).collect();
+        let ct  = self.chars.current_token::<Vec<char>>();
+        let l = ct.len();
+        let s: String = ct[1..(l-1)].iter().collect();
         Tok::String(s)
     }
 
     fn word(&mut self) -> Tok {
         self.chars
             .take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
-        let s: String = self.chars.current_token().collect();
+        let s: String = self.chars.current_token();
         match s.as_str() {
             "true" => Tok::True,
             "false" => Tok::False,

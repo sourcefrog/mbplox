@@ -48,11 +48,8 @@ impl<'s> Iterator for Scanner<'s> {
             if self.chars.is_empty() {
                 return None;
             }
+            self.chars.start_token();
             let ch = self.chars.take().unwrap();
-            // Maybe collecting the lexeme should be integrated with `Peek`,
-            // with some kind of reset at the start of the token?
-            let lexeme = String::from(ch);
-
             let token_type = match ch {
                 '\n' => {
                     self.line += 1;
@@ -75,78 +72,92 @@ impl<'s> Iterator for Scanner<'s> {
                     continue; // drop the comment
                 }
                 '/' => Tok::Dot,
-                '0'..='9' => return self.number(ch),
+                '0'..='9' => return self.number(),
                 other => panic!("unhandled character {:?}", other),
             };
-            return self.make_token(token_type, lexeme);
+            return self.make_token(token_type);
         }
     }
 }
 
 impl<'s> Scanner<'s> {
-    fn make_token(&self, token_type: Tok, lexeme: String) -> Option<Token> {
+    fn make_token(&self, tok: Tok) -> Option<Token> {
         Some(Token {
-            tok: token_type,
-            lexeme,
+            tok,
+            lexeme: self.chars.current_token().collect(),
             line: self.line,
         })
     }
 
-    fn number(&mut self, first_char: char) -> Option<Token> {
-        let mut s = String::from(first_char);
-        while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
-            s.push(cc)
-        }
-        if self.chars.peek() == Some(&'.')
-            && self
-                .chars
-                .peek_nth(1)
-                .map(|cc| cc.is_ascii_digit())
-                .unwrap_or_default()
-        {
-            self.chars.take_exactly(&'.').unwrap();
-            s.push('.');
-            while let Some(cc) = self.chars.take_if(|c| c.is_ascii_digit()) {
-                s.push(cc)
+    fn number(&mut self) -> Option<Token> {
+        self.chars.take_while(|c| c.is_ascii_digit());
+        match self.chars.peek2() {
+            Some(('.', cc)) if cc.is_ascii_digit() => {
+                self.chars.take_exactly(&'.').unwrap();
+                self.chars.take_while(|c| c.is_ascii_digit());
             }
+            _ => (),
         }
-        let val: f64 = s.parse().unwrap();
-
-        self.make_token(Tok::Number(val), s)
+        let val: f64 = self
+            .chars
+            .current_token()
+            .collect::<String>()
+            .parse()
+            .unwrap();
+        self.make_token(Tok::Number(val))
     }
 }
 
 /// Iterator adapter allowing arbitrary-length peeking ahead.
 ///
-/// Beyond [std::iter::Peekable] this allows looking more than one
-/// item ahead.
+/// Provides low-level char parsing without knowing anything specific about the
+/// grammar.
+///
+/// Beyond [std::iter::Peekable] this allows looking more than one item ahead.
 struct Peek<C, I>
 where
     I: Iterator<Item = C>,
-    C: PartialEq,
+    C: PartialEq + Clone,
 {
     inner: I,
     buf: Vec<C>,
+    current_token: Vec<C>,
 }
 
 impl<C, I> Peek<C, I>
 where
     I: Iterator<Item = C>,
-    C: PartialEq,
+    C: PartialEq + Clone,
 {
     fn new(inner: I) -> Peek<C, I> {
         Peek {
             inner,
             buf: Vec::new(),
+            current_token: Vec::new(),
         }
+    }
+
+    fn start_token(&mut self) {
+        self.current_token.clear()
+    }
+
+    /// Return all the atoms recognized since the last [start_token].
+    fn current_token(&self) -> impl Iterator<Item = &C> {
+        self.current_token.iter()
     }
 
     fn take(&mut self) -> Option<C> {
         if self.buf.is_empty() {
             self.inner.next()
         } else {
-            Some(self.buf.remove(0))
+            let c = self.buf.remove(0);
+            self.current_token.push(c.clone());
+            Some(c)
         }
+    }
+
+    pub fn take_while(&mut self, f: fn(&C) -> bool) {
+        while self.take_if(f).is_some() {}
     }
 
     fn take_exactly(&mut self, c: &C) -> Option<C> {
@@ -171,6 +182,14 @@ where
 
     fn peek(&mut self) -> Option<&C> {
         self.peek_nth(0)
+    }
+
+    fn peek2(&mut self) -> Option<(&C, &C)> {
+        if self.peek_nth(1).is_some() {
+            Some((&self.buf[0], &self.buf[1]))
+        } else {
+            None
+        }
     }
 
     fn peek_nth(&mut self, n: usize) -> Option<&C> {
@@ -208,9 +227,7 @@ mod test {
     #[test]
     fn integer_followed_by_dot_is_not_float() {
         assert_eq!(
-            scan("1234.")
-                .map(|t| t.tok)
-                .collect::<Vec<Tok>>(),
+            scan("1234.").map(|t| t.tok).collect::<Vec<Tok>>(),
             vec![Tok::Number(1234.0), Tok::Dot,]
         );
     }
@@ -218,9 +235,7 @@ mod test {
     #[test]
     fn decimal_float() {
         assert_eq!(
-            scan("3.1415")
-                .map(|t| t.tok)
-                .collect::<Vec<Tok>>(),
+            scan("3.1415").map(|t| t.tok).collect::<Vec<Tok>>(),
             vec![Tok::Number(3.1415),]
         );
     }

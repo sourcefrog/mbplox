@@ -5,7 +5,7 @@
 // use crate::Result;
 
 #[derive(Debug, PartialEq)]
-pub enum TokenType {
+pub enum Tok {
     Plus,
     Minus,
     Star,
@@ -19,7 +19,7 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    token_type: TokenType,
+    tok: Tok,
     /// 1-based source line where it occurs.
     line: usize,
     /// Literal content of the lexeme.
@@ -61,10 +61,10 @@ impl<'s> Iterator for Scanner<'s> {
                 ' ' | '\t' | '\r' => {
                     continue;
                 }
-                '+' => TokenType::Plus,
-                '*' => TokenType::Star,
-                '-' => TokenType::Minus,
-                '.' => TokenType::Dot,
+                '+' => Tok::Plus,
+                '*' => Tok::Star,
+                '-' => Tok::Minus,
+                '.' => Tok::Dot,
                 '/' if self.chars.peek() == Some(&'/') => {
                     while let Some(cc) = self.chars.take() {
                         if cc == '\n' {
@@ -74,7 +74,7 @@ impl<'s> Iterator for Scanner<'s> {
                     }
                     continue; // drop the comment
                 }
-                '/' => TokenType::Dot,
+                '/' => Tok::Dot,
                 '0'..='9' => return self.number(ch),
                 other => panic!("unhandled character {:?}", other),
             };
@@ -84,9 +84,9 @@ impl<'s> Iterator for Scanner<'s> {
 }
 
 impl<'s> Scanner<'s> {
-    fn make_token(&self, token_type: TokenType, lexeme: String) -> Option<Token> {
+    fn make_token(&self, token_type: Tok, lexeme: String) -> Option<Token> {
         Some(Token {
-            token_type,
+            tok: token_type,
             lexeme,
             line: self.line,
         })
@@ -112,7 +112,7 @@ impl<'s> Scanner<'s> {
         }
         let val: f64 = s.parse().unwrap();
 
-        self.make_token(TokenType::Number(val), s)
+        self.make_token(Tok::Number(val), s)
     }
 }
 
@@ -198,7 +198,7 @@ mod test {
         itertools::assert_equal(
             scan("12345"),
             [Token {
-                token_type: TokenType::Number(12345.0),
+                tok: Tok::Number(12345.0),
                 line: 1,
                 lexeme: "12345".to_owned(),
             }],
@@ -209,9 +209,9 @@ mod test {
     fn integer_followed_by_dot_is_not_float() {
         assert_eq!(
             scan("1234.")
-                .map(|t| t.token_type)
-                .collect::<Vec<TokenType>>(),
-            vec![TokenType::Number(1234.0), TokenType::Dot,]
+                .map(|t| t.tok)
+                .collect::<Vec<Tok>>(),
+            vec![Tok::Number(1234.0), Tok::Dot,]
         );
     }
 
@@ -219,9 +219,9 @@ mod test {
     fn decimal_float() {
         assert_eq!(
             scan("3.1415")
-                .map(|t| t.token_type)
-                .collect::<Vec<TokenType>>(),
-            vec![TokenType::Number(3.1415),]
+                .map(|t| t.tok)
+                .collect::<Vec<Tok>>(),
+            vec![Tok::Number(3.1415),]
         );
     }
 
@@ -231,12 +231,12 @@ mod test {
             scan("1\n// two would be here\n\n3.000\n\n// the end!\n").collect::<Vec<Token>>(),
             vec![
                 Token {
-                    token_type: TokenType::Number(1.0),
+                    tok: Tok::Number(1.0),
                     line: 1,
                     lexeme: "1".to_owned(),
                 },
                 Token {
-                    token_type: TokenType::Number(3.0),
+                    tok: Tok::Number(3.0),
                     line: 4,
                     lexeme: "3.000".to_owned()
                 },

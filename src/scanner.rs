@@ -9,6 +9,7 @@ pub enum Tok {
     Plus,
     Minus,
     Star,
+    Slash,
     Dot,
 
     True,
@@ -62,7 +63,7 @@ impl<'s> Iterator for Lexer<'s> {
                     self.chars.take_until(|cc| *cc == '\n');
                     continue; // drop the comment
                 }
-                '/' => Tok::Dot,
+                '/' => Tok::Slash,
                 '0'..='9' => self.number(),
                 '"' => self.string(),
                 ch if ch.is_ascii_alphabetic() => self.word(),
@@ -357,6 +358,15 @@ mod test {
                 Tok::Identifier("maybe".to_owned()),
                 Tok::Identifier("__secret__".to_owned())
             ]
+        );
+    }
+
+    #[test]
+    fn operators() {
+        let src = "+-*/";
+        assert_eq!(
+            lex(src).map(|token| token.tok).collect::<Vec<Tok>>(),
+            [Tok::Plus, Tok::Minus, Tok::Star, Tok::Slash]
         );
     }
 }

@@ -29,7 +29,7 @@ pub struct Token {
 /// Return an iterator over the tokens in the source.
 pub fn lex(source: &str) -> impl Iterator<Item = Token> + '_ {
     Lexer {
-        chars: Scan::new(source.chars(), |c: &char| *c == '\n'),
+        chars: Scan::new(source.chars()),
     }
 }
 
@@ -105,26 +105,24 @@ impl<'s> Lexer<'s> {
 struct Scan<C, I>
 where
     I: Iterator<Item = C>,
-    C: PartialEq + Clone,
+    C: PartialEq + Clone + IsNewline,
 {
     inner: I,
     buf: Vec<C>,
     current_token: Vec<C>,
-    is_newline: fn(&C) -> bool,
     line_number: usize,
 }
 
 impl<C, I> Scan<C, I>
 where
     I: Iterator<Item = C>,
-    C: PartialEq + Clone,
+    C: PartialEq + Clone + IsNewline,
 {
-    fn new(inner: I, is_newline: fn(&C) -> bool) -> Scan<C, I> {
+    fn new(inner: I) -> Scan<C, I> {
         Scan {
             inner,
             buf: Vec::new(),
             current_token: Vec::new(),
-            is_newline,
             line_number: 1,
         }
     }
@@ -148,7 +146,7 @@ where
         } else {
             self.buf.remove(0)
         };
-        if (self.is_newline)(&c) {
+        if c.is_newline() {
             self.line_number += 1;
         }
         self.current_token.push(c.clone());
@@ -217,6 +215,16 @@ where
 
     fn is_empty(&mut self) -> bool {
         self.peek().is_none()
+    }
+}
+
+trait IsNewline {
+    fn is_newline(&self) -> bool;
+}
+
+impl IsNewline for char {
+    fn is_newline(&self) -> bool {
+        *self == '\n'
     }
 }
 

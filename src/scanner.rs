@@ -12,7 +12,7 @@ pub enum Tok {
     Dot,
 
     // Literals
-    // String(String),
+    String(String),
     Number(f64),
     // Identifier(String),
 }
@@ -60,7 +60,8 @@ impl<'s> Iterator for Lexer<'s> {
                     continue; // drop the comment
                 }
                 '/' => Tok::Dot,
-                '0'..='9' => return self.number(),
+                '0'..='9' => self.number(),
+                '"' => self.string(),
                 other => panic!("unhandled character {:?}", other),
             };
             return self.make_token(token_type);
@@ -73,11 +74,11 @@ impl<'s> Lexer<'s> {
         Some(Token {
             tok,
             lexeme: self.chars.current_token().collect(),
-            line: self.chars.line_number(),
+            line: self.chars.token_start_line,
         })
     }
 
-    fn number(&mut self) -> Option<Token> {
+    fn number(&mut self) -> Tok {
         self.chars.take_while(|c| c.is_ascii_digit());
         match self.chars.peek2() {
             Some(('.', cc)) if cc.is_ascii_digit() => {
@@ -92,7 +93,15 @@ impl<'s> Lexer<'s> {
             .collect::<String>()
             .parse()
             .unwrap();
-        self.make_token(Tok::Number(val))
+        Tok::Number(val)
+    }
+
+    fn string(&mut self) -> Tok {
+        self.chars.take_until(|c| *c == '"');
+        // Skip the quotes
+        let l = self.chars.current_token.len();
+        let s: String = self.chars.current_token[1..(l - 1)].iter().collect();
+        Tok::String(s)
     }
 }
 
@@ -110,6 +119,7 @@ where
     inner: I,
     buf: Vec<C>,
     current_token: Vec<C>,
+    token_start_line: usize,
     line_number: usize,
 }
 
@@ -124,11 +134,13 @@ where
             buf: Vec::new(),
             current_token: Vec::new(),
             line_number: 1,
+            token_start_line: 1,
         }
     }
 
     fn start_token(&mut self) {
-        self.current_token.clear()
+        self.current_token.clear();
+        self.token_start_line = self.line_number;
     }
 
     /// Return all the atoms recognized since the last [start_token].
@@ -151,10 +163,6 @@ where
         }
         self.current_token.push(c.clone());
         Some(c)
-    }
-
-    fn line_number(&self) -> usize {
-        self.line_number
     }
 
     fn take_if<F>(&mut self, f: F) -> Option<C>
@@ -230,6 +238,8 @@ impl IsNewline for char {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     #[test]
@@ -292,6 +302,31 @@ mod test {
         assert_eq!(
             lex("// a comment\n\n\n// then another\n").collect::<Vec<Token>>(),
             vec![]
+        );
+    }
+
+    #[test]
+    fn simple_string() {
+        assert_eq!(
+            lex(r#""hello Lox?""#).collect::<Vec<Token>>(),
+            vec![Token {
+                tok: Tok::String("hello Lox?".to_owned()),
+                line: 1,
+                lexeme: r#""hello Lox?""#.to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn multi_line_string_has_line_number_of_start() {
+        let src = "\"one\nokapi\ntwo\n\"";
+        assert_eq!(
+            lex(src).collect::<Vec<Token>>(),
+            vec![Token {
+                tok: Tok::String("one\nokapi\ntwo\n".to_owned()),
+                line: 1,
+                lexeme: src.to_owned(),
+            }]
         );
     }
 }

@@ -11,10 +11,13 @@ pub enum Tok {
     Star,
     Dot,
 
+    True,
+    False,
+
     // Literals
     String(String),
     Number(f64),
-    // Identifier(String),
+    Identifier(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,6 +65,8 @@ impl<'s> Iterator for Lexer<'s> {
                 '/' => Tok::Dot,
                 '0'..='9' => self.number(),
                 '"' => self.string(),
+                ch if ch.is_ascii_alphabetic() => self.word(),
+                '_' => self.word(),
                 other => panic!("unhandled character {:?}", other),
             };
             return self.make_token(token_type);
@@ -102,6 +107,17 @@ impl<'s> Lexer<'s> {
         let l = self.chars.current_token.len();
         let s: String = self.chars.current_token[1..(l - 1)].iter().collect();
         Tok::String(s)
+    }
+
+    fn word(&mut self) -> Tok {
+        self.chars
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
+        let s: String = self.chars.current_token().collect();
+        match s.as_str() {
+            "true" => Tok::True,
+            "false" => Tok::False,
+            _ => Tok::Identifier(s),
+        }
     }
 }
 
@@ -327,6 +343,20 @@ mod test {
                 line: 1,
                 lexeme: src.to_owned(),
             }]
+        );
+    }
+
+    #[test]
+    fn words_and_keywords() {
+        let src = "true false maybe __secret__";
+        assert_eq!(
+            lex(src).map(|token| token.tok).collect::<Vec<Tok>>(),
+            [
+                Tok::True,
+                Tok::False,
+                Tok::Identifier("maybe".to_owned()),
+                Tok::Identifier("__secret__".to_owned())
+            ]
         );
     }
 }

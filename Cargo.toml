@@ -7,5 +7,6 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.44"
+argh = "0.1.6"
 itertools = "0.10.1"
 pretty_assertions = "1.0.0"

@@ -2,18 +2,37 @@
 
 use std::fs;
 // use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
 mod lex;
 mod scan;
 
+use argh::FromArgs;
 use lex::Token;
 
+#[derive(FromArgs)]
+/// Run a Lox program.
+struct Args {
+    /// file to interpret
+    #[argh(positional)]
+    file: Option<PathBuf>,
+
+    /// lox source code to run
+    #[argh(option, short = 'e')]
+    eval: Vec<String>,
+}
+
 fn main() -> Result<()> {
-    let mut args = std::env::args();
-    run_file(Path::new(&args.nth(1).expect("one argument")))
+    let args: Args = argh::from_env();
+    if let Some(path) = &args.file {
+        run_file(path)?
+    }
+    for expr in args.eval {
+        run(&expr)?
+    }
+    Ok(())
 }
 
 fn run_file(path: &Path) -> Result<()> {

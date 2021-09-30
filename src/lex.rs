@@ -108,7 +108,7 @@ impl<'s> Lexer<'s> {
         self.chars.take_until(|c| *c == '"');
         // Omit the starting and ending quotes
         let l = self.chars.current_token().count();
-        let s: String = self.chars.current_token().skip(1).take(l-2).collect();
+        let s: String = self.chars.current_token().skip(1).take(l - 2).collect();
         Tok::String(s)
     }
 

@@ -99,12 +99,14 @@ impl<'s> Lexer<'s> {
 
     fn string(&mut self) -> Tok {
         // TODO: Handle backslash escapes.
-        // TODO: Error if the string is unterminated.
-        self.scan.take_until(|c| *c == '"');
-        // Omit the starting and ending quotes
-        let ct = self.scan.current_token::<Vec<char>>();
-        let l = ct.len();
-        let s: String = ct[1..(l - 1)].iter().collect();
+        // TODO: Clean error if the string is unterminated.
+        let mut s = String::new();
+        while let Some(c) = self.scan.take_if(|c| *c != '"') {
+            s.push(c)
+        }
+        if self.scan.take_exactly(&'"').is_none() {
+            panic!("unterminated string");
+        }
         Tok::String(s)
     }
 
@@ -212,6 +214,14 @@ mod test {
                 lexeme: src.to_owned(),
             }]
         );
+    }
+
+    #[should_panic]
+    #[test]
+    fn unterminated_string_errors() {
+        let src = "\"going along...";
+        // TODO: Give a nice error rather than panic
+        let _v = lex(src).collect::<Vec<Token>>();
     }
 
     #[test]

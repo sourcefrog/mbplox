@@ -10,15 +10,46 @@ pub enum Tok {
     Minus,
     Star,
     Slash,
+    Comma,
     Dot,
+    Semicolon,
+
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 
     True,
     False,
 
-    // Literals
     String(String),
     Number(f64),
     Identifier(String),
+
+    // keywords
+    And,
+    Class,
+    Else,
+    Fun,
+    For, 
+    If,
+    Nil, 
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    Var,
+    While
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +100,10 @@ impl<'s> Lexer<'s> {
                 }
                 '/' => Tok::Slash,
                 '0'..='9' => self.number(),
+                '{' => Tok::LeftBrace,
+                '}' => Tok::RightBrace,
+                '(' => Tok::LeftParen,
+                ')' => Tok::RightParen,
                 '"' => self.string(),
                 ch if ch.is_ascii_alphabetic() => self.word(),
                 '_' => self.word(),

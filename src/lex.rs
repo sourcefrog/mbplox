@@ -36,7 +36,7 @@ pub struct Lexer<'s> {
 }
 
 impl<'s> Lexer<'s> {
-    /// Return an iterator over the tokens in the source.
+    /// Construct a Lexer containing the tokens in the source.
     pub fn new(source: &str) -> Lexer {
         let mut lex = Lexer {
             scan: Scan::new(source.chars()),

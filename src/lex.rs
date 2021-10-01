@@ -23,11 +23,11 @@ pub enum Tok {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
-    tok: Tok,
+    pub tok: Tok,
     /// 1-based source line where it occurs.
-    line: usize,
+    pub line: usize,
     /// Literal content of the lexeme.
-    lexeme: String,
+    pub lexeme: String,
 }
 
 pub struct Lexer<'s> {

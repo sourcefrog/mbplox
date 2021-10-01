@@ -4,7 +4,7 @@
 
 use std::fs;
 // use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
@@ -26,25 +26,28 @@ struct Args {
     /// lox source code to run
     #[argh(option, short = 'e')]
     eval: Vec<String>,
+
+    /// print all the tokens from the input, instead of running it.
+    #[argh(switch)]
+    dump_tokens: bool,
 }
 
 fn main() -> Result<()> {
     let args: Args = argh::from_env();
+    let mut all_sources: Vec<String> = Vec::new();
     if let Some(path) = &args.file {
-        run_file(path)?
+        all_sources.push(fs::read_to_string(path).context("read source file")?);
     }
-    for expr in args.eval {
-        run(&expr)?
+    all_sources.extend(args.eval);
+    if args.dump_tokens {
+        for source in all_sources {
+            let lexer = lex::Lexer::new(&source);
+            for token in lexer.tokens() {
+                println!("{:?}", token.tok);
+            }
+        }
+    } else {
+        unimplemented!()
     }
-    Ok(())
-}
-
-fn run_file(path: &Path) -> Result<()> {
-    run(&fs::read_to_string(path).context("read source file")?)
-}
-
-fn run(source: &str) -> Result<()> {
-    let lexer = lex::Lexer::new(source);
-    dbg!(lexer.tokens());
     Ok(())
 }

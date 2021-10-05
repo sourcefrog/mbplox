@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+mod ast;
+mod eval;
 mod lex;
 mod scan;
 mod value;

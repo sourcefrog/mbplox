@@ -1,5 +1,7 @@
 // Copyright 2021 Martin Pool
 
+//! An interpreter for the Lox small language from *Crafting Interpreters*.
+
 use std::fs;
 // use std::io;
 use std::path::{Path, PathBuf};
@@ -8,6 +10,7 @@ use anyhow::{Context, Result};
 
 mod lex;
 mod scan;
+mod value;
 
 use argh::FromArgs;
 

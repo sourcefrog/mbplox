@@ -23,16 +23,37 @@ use crate::value::Value;
 // This is intended to be in the parser combinator style, written
 // from scratch as a learning exercise...
 
-pub fn parse_literal(tokens: &[Token]) -> Option<(Expr, &[Token])> {
-    if let Some(first) = tokens.first() {
-        if let Some(value) = Value::from_literal_token(first) {
-            Some((Expr::Literal(value), &tokens[1..]))
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+/// Parse a literal value: string, number, bool, or nil.
+fn parse_literal(tokens: &[Token]) -> Option<(Expr, &[Token])> {
+    take_if(tokens, |t| {
+        Value::from_literal_token(t).map(|v| Expr::Literal(v))
+    })
+}
+
+/// Parse a unary expression:
+///
+/// unary          → ( "-" | "!" ) expression ;    
+fn parse_unary(tokens: &[Token]) -> Option<(Expr, &[Token])> {
+    todo!()
+}
+
+/// Parse any expression
+///
+///    expression     → literal
+///                   | unary
+///                   | binary
+///                   | grouping
+
+pub fn parse_expr(tokens: &[Token]) -> Option<(Expr, &[Token])> {
+    todo!()
+}
+
+/// Parse and consume one element if the function matches it.
+fn take_if<T>(tokens: &[Token], match_fn: fn(&Token) -> Option<T>) -> Option<(T, &[Token])> {
+    tokens
+        .first()
+        .and_then(match_fn)
+        .and_then(|t| Some((t, &tokens[1..])))
 }
 
 #[cfg(test)]

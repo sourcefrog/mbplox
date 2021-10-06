@@ -40,16 +40,16 @@ pub enum Tok {
     Class,
     Else,
     Fun,
-    For, 
+    For,
     If,
-    Nil, 
+    Nil,
     Or,
     Print,
     Return,
     Super,
     This,
     Var,
-    While
+    While,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,7 +61,16 @@ pub struct Token {
     pub lexeme: String,
 }
 
-pub struct Lexer<'s> {
+pub struct Error {
+    // TODO
+}
+
+pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
+    let lexer = Lexer::new(source);
+    (lexer.tokens, Vec::new())
+}
+
+struct Lexer<'s> {
     scan: Scan<char, std::str::Chars<'s>>,
     tokens: Vec<Token>,
 }
@@ -162,7 +171,9 @@ mod test {
     use super::*;
 
     fn lex_tokens(s: &str) -> Vec<Token> {
-        Lexer::new(s).tokens().to_vec()
+        let (tokens, errs) = lex(s);
+        assert_eq!(errs.len(), 0);
+        tokens
     }
 
     fn lex_toks<'s>(s: &'s str) -> Vec<Tok> {

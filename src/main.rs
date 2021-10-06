@@ -2,8 +2,8 @@
 
 //! An interpreter for the Lox small language from *Crafting Interpreters*.
 
+#[allow(unused, dead_code, unused_imports)]
 use std::fs;
-// use std::io;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 mod ast;
 mod eval;
 mod lex;
+// mod parse;
 mod scan;
 mod value;
 
@@ -40,9 +41,9 @@ fn main() -> Result<()> {
     }
     all_sources.extend(args.eval);
     if args.dump_tokens {
-        for source in all_sources {
-            let lexer = lex::Lexer::new(&source);
-            for token in lexer.tokens() {
+        for source in &all_sources {
+            let (tokens, _errs) = lex::lex(source);
+            for token in tokens {
                 println!("{:?}", token.tok);
             }
         }

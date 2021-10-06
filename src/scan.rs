@@ -3,12 +3,12 @@
 //! Scan text as characters, with peek-ahead, tracking line numbers,
 //! and remembering the characters in each token.
 
-/// Iterator adapter allowing arbitrary-length peeking ahead.
+/// Scan characters with arbitrary lookahead.
 ///
 /// Provides low-level char parsing without knowing anything specific about the
 /// grammar.
 ///
-/// Beyond [std::iter::Peekable] this allows looking more than one item ahead.
+/// Type parameter `C` is typically `char` but could be `u8` etc.
 pub struct Scan<C, I>
 where
     I: Iterator<Item = C>,
@@ -41,7 +41,7 @@ where
         self.token_start_line = self.line_number;
     }
 
-    /// Return all the atoms recognized since the last [start_token].
+    /// Return all the atoms recognized since the last [Scan::start_token].
     pub fn current_token<S>(&self) -> S
     where
         S: std::iter::FromIterator<C>,
@@ -53,7 +53,7 @@ where
         self.token_start_line
     }
 
-    /// Consume and return one atom.
+    /// Consume and return one character.
     ///
     /// All consumption should go through here to maintain invariants, including
     /// line numbering and accumulating the current token.

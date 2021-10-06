@@ -32,7 +32,7 @@ fn parse_literal(tokens: &[Token]) -> Option<(Expr, &[Token])> {
 
 /// Parse a unary expression:
 ///
-/// unary          → ( "-" | "!" ) expression ;    
+/// unary          → ( "-" | "!" ) expression ;
 fn parse_unary(tokens: &[Token]) -> Option<(Expr, &[Token])> {
     todo!()
 }

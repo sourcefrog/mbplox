@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 mod ast;
 mod eval;
 mod lex;
-// mod parse;
+mod parse;
 mod scan;
 mod value;
 

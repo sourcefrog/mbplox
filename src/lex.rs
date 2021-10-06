@@ -159,6 +159,7 @@ impl<'s> Lexer<'s> {
         match s.as_str() {
             "true" => Tok::True,
             "false" => Tok::False,
+            "nil" => Tok::Nil,
             _ => Tok::Identifier(s),
         }
     }

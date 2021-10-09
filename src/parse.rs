@@ -2,10 +2,10 @@
 
 //! Parse a stream of tokens into an AST.
 
-// use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::ast::Expr;
-use crate::lex::{Tok, Token};
+use crate::lex::Token;
 use crate::value::Value;
 
 // General approach to the parser API:
@@ -24,16 +24,17 @@ use crate::value::Value;
 // from scratch as a learning exercise...
 
 /// Parse a literal value: string, number, bool, or nil.
-fn parse_literal(tokens: &[Token]) -> Option<(Expr, &[Token])> {
+fn parse_literal(tokens: &[Token]) -> Result<(Expr, &[Token])> {
     take_if(tokens, |t| {
         Value::from_literal_token(t).map(|v| Expr::Literal(v))
     })
+    .ok_or(anyhow!("not a literal"))
 }
 
 /// Parse a unary expression:
 ///
 /// unary          → ( "-" | "!" ) expression ;
-fn parse_unary(tokens: &[Token]) -> Option<(Expr, &[Token])> {
+fn parse_unary(_tokens: &[Token]) -> Result<(Expr, &[Token])> {
     todo!()
 }
 
@@ -44,8 +45,16 @@ fn parse_unary(tokens: &[Token]) -> Option<(Expr, &[Token])> {
 ///                   | binary
 ///                   | grouping
 
-pub fn parse_expr(tokens: &[Token]) -> Option<(Expr, &[Token])> {
-    todo!()
+pub fn parse_expr(tokens: &[Token]) -> Result<(Expr, &[Token])> {
+    let (expr, rest) = parse_literal(tokens)?;
+    if let Some(next_token) = rest.first() {
+        return Err(anyhow!(
+            "unexpected tokens after literal {:?}: {:?}",
+            expr,
+            next_token
+        ));
+    }
+    Ok((expr, rest))
 }
 
 /// Parse and consume one element if the function matches it.
@@ -63,7 +72,7 @@ mod test {
 
     /// Parse a string, expecting that there are no errors and nothing
     /// remaining unparsed.
-    fn parse_exactly(source: &str, parse_fn: fn(&[Token]) -> Option<(Expr, &[Token])>) -> Expr {
+    fn parse_exactly(source: &str, parse_fn: fn(&[Token]) -> Result<(Expr, &[Token])>) -> Expr {
         let (tokens, errs) = lex(source);
         assert_eq!(errs.len(), 0);
         let (expr, remaining) = parse_fn(&tokens).unwrap();

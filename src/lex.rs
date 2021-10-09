@@ -86,11 +86,6 @@ impl<'s> Lexer<'s> {
         lex
     }
 
-    /// Retrieve resulting tokens.
-    pub fn tokens(&self) -> &[Token] {
-        &self.tokens
-    }
-
     fn lex(&mut self) {
         while !self.scan.is_empty() {
             self.scan.start_token();
@@ -178,11 +173,7 @@ mod test {
     }
 
     fn lex_toks<'s>(s: &'s str) -> Vec<Tok> {
-        Lexer::new(s)
-            .tokens()
-            .iter()
-            .map(|t| t.tok.clone())
-            .collect()
+        lex_tokens(s).into_iter().map(|t| t.tok).collect()
     }
 
     #[test]

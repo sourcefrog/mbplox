@@ -2,7 +2,9 @@
 
 //! An interpreter for the Lox small language from *Crafting Interpreters*.
 
-#[allow(unused, dead_code, unused_imports)]
+// Just while half-implemented.
+#![allow(unused, dead_code, unused_imports)]
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -48,7 +50,11 @@ fn main() -> Result<()> {
             }
         }
     } else {
-        unimplemented!()
+        let mut interpreter = eval::Interpreter::new();
+        for source in &all_sources {
+            let value = interpreter.eval(source)?;
+            println!("{:?}", value);
+        }
     }
     Ok(())
 }

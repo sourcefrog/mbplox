@@ -42,6 +42,7 @@ fn main() -> Result<()> {
         all_sources.push(fs::read_to_string(path).context("read source file")?);
     }
     all_sources.extend(args.eval);
+    // TODO: If no sources then repl.
     if args.dump_tokens {
         for source in &all_sources {
             let (tokens, _errs) = lex::lex(source);

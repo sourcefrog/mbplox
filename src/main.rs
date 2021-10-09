@@ -53,7 +53,7 @@ fn main() -> Result<()> {
         let mut interpreter = eval::Interpreter::new();
         for source in &all_sources {
             let value = interpreter.eval(source)?;
-            println!("{:?}", value);
+            println!("{}", value);
         }
     }
     Ok(())

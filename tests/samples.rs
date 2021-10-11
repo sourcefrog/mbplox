@@ -7,7 +7,7 @@ use std::fs;
 /// Find "expect: " comments and return everything after them.
 fn extract_expectations(s: &str) -> Vec<&str> {
     let mut result = Vec::new();
-    let pattern : &str = "// expect: ";
+    let pattern: &str = "// expect: ";
     for l in s.lines() {
         if let Some((_, expectation)) = l.split_once(pattern) {
             result.push(expectation)
@@ -16,7 +16,7 @@ fn extract_expectations(s: &str) -> Vec<&str> {
     result
 }
 
-#[test] 
+#[test]
 fn extract_expectations_from_literals() {
     let filename = "samples/literals.lox";
     let source = fs::read_to_string(filename).unwrap();

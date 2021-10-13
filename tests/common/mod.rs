@@ -4,6 +4,7 @@
 
 use assert_cmd::Command;
 
-pub fn main_command() -> Command {
+/// Construct a [Command] that will run the `mbplox` interpreter when launched.
+pub fn mbplox() -> Command {
     Command::cargo_bin("mbplox").unwrap()
 }

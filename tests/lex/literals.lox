@@ -1,0 +1,5 @@
+1234            // expect: Number(1234.0)
+true            // expect: True
+nil             // expect: Nil
+"hello!"        // expect: String("hello!")
+3.14156         // expect: Number(3.14156)

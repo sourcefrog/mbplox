@@ -65,117 +65,97 @@ pub struct Error {
     // TODO
 }
 
+/// Lex some Lox source into a vec of tokens, and a vec of any errors encountered in scanning the
+/// source.
 pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
-    let lexer = Lexer::new(source);
-    (lexer.tokens, Vec::new())
-}
-
-struct Lexer<'s> {
-    scan: Scan<'s>,
-    tokens: Vec<Token>,
-}
-
-impl<'s> Lexer<'s> {
-    /// Construct a Lexer containing the tokens in the source.
-    pub fn new(source: &str) -> Lexer {
-        let mut lex = Lexer {
-            scan: Scan::new(source),
-            tokens: Vec::new(),
-        };
-        lex.lex();
-        lex
-    }
-
-    fn lex(&mut self) {
-        while !self.scan.is_empty() {
-            self.scan.start_token();
-            let ch = self.scan.take().unwrap();
-            let tok = match ch {
-                '\n' | ' ' | '\t' | '\r' => {
-                    continue;
-                }
-                '+' => Tok::Plus,
-                '*' => Tok::Star,
-                '-' => Tok::Minus,
-                '.' => Tok::Dot,
-                '/' if self.scan.peek() == Some('/') => {
-                    self.scan.take_until(|cc| *cc == '\n');
-                    continue; // drop the comment
-                }
-                '/' => Tok::Slash,
-                ';' => Tok::Semicolon,
-                ',' => Tok::Comma,
-                '!' if self.scan.take_exactly('=') => Tok::BangEqual,
-                '!' => Tok::Bang,
-                '=' if self.scan.take_exactly('=') => Tok::EqualEqual,
-                '=' => Tok::Equal,
-                '0'..='9' => self.number(),
-                '{' => Tok::LeftBrace,
-                '}' => Tok::RightBrace,
-                '(' => Tok::LeftParen,
-                ')' => Tok::RightParen,
-                '<' if self.scan.take_exactly('=') => Tok::LessEqual,
-                '<' => Tok::Less,
-                '>' if self.scan.take_exactly('=') => Tok::GreaterEqual,
-                '>' => Tok::Greater,
-                '"' => self.string(),
-                ch if ch.is_ascii_alphabetic() => self.word(),
-                '_' => self.word(),
-                other => panic!(
-                    "unhandled character {:?} on line {}",
-                    other,
-                    self.scan.current_token_start_line()
-                ),
-            };
-            self.tokens.push(Token {
-                tok,
-                lexeme: self.scan.current_token().to_owned(),
-                line: self.scan.current_token_start_line(),
-            });
-        }
-    }
-
-    fn number(&mut self) -> Tok {
-        self.scan.take_while(|c| c.is_ascii_digit());
-        match self.scan.peek2() {
-            Some(('.', cc)) if cc.is_ascii_digit() => {
-                assert!(self.scan.take_exactly('.'));
-                self.scan.take_while(|c| c.is_ascii_digit());
+    let mut scan = Scan::new(source);
+    let mut tokens = Vec::new();
+    let mut errors = Vec::new();
+    while !scan.is_empty() {
+        scan.start_token();
+        let tok = match scan.take().unwrap() {
+            '\n' | ' ' | '\t' | '\r' => {
+                continue;
             }
-            _ => (),
-        }
-        // TODO: 1234hello should probably be an error, not a number followed by an identifier.
-        // But 1234+hello is ok.
-        let val: f64 = self.scan.current_token().parse().unwrap();
-        Tok::Number(val)
+            '+' => Tok::Plus,
+            '*' => Tok::Star,
+            '-' => Tok::Minus,
+            '.' => Tok::Dot,
+            '/' if scan.take_exactly('/') => {
+                scan.take_until(|cc| *cc == '\n');
+                continue; // drop the comment
+            }
+            '/' => Tok::Slash,
+            ';' => Tok::Semicolon,
+            ',' => Tok::Comma,
+            '!' if scan.take_exactly('=') => Tok::BangEqual,
+            '!' => Tok::Bang,
+            '=' if scan.take_exactly('=') => Tok::EqualEqual,
+            '=' => Tok::Equal,
+            '0'..='9' => number(&mut scan),
+            '{' => Tok::LeftBrace,
+            '}' => Tok::RightBrace,
+            '(' => Tok::LeftParen,
+            ')' => Tok::RightParen,
+            '<' if scan.take_exactly('=') => Tok::LessEqual,
+            '<' => Tok::Less,
+            '>' if scan.take_exactly('=') => Tok::GreaterEqual,
+            '>' => Tok::Greater,
+            '"' => string(&mut scan),
+            ch if ch.is_ascii_alphabetic() || ch == '_' => word(&mut scan),
+            other => panic!(
+                "unhandled character {:?} on line {}",
+                other,
+                scan.current_token_start_line()
+            ),
+        };
+        tokens.push(Token {
+            tok,
+            lexeme: scan.current_token().to_owned(),
+            line: scan.current_token_start_line(),
+        });
     }
+    (tokens, errors)
+}
 
-    fn string(&mut self) -> Tok {
-        // TODO: Handle backslash escapes.
-        // TODO: Clean error if the string is unterminated.
-        let mut s = String::new();
-        while let Some(c) = self.scan.take_if(|c| *c != '"') {
-            s.push(c)
+fn number(scan: &mut Scan) -> Tok {
+    scan.take_while(|c| c.is_ascii_digit());
+    match scan.peek2() {
+        Some(('.', cc)) if cc.is_ascii_digit() => {
+            assert!(scan.take_exactly('.'));
+            scan.take_while(|c| c.is_ascii_digit());
         }
-        if !self.scan.take_exactly('"') {
-            panic!(
-                "unterminated string starting on line {}",
-                self.scan.current_token_start_line()
-            );
-        }
-        Tok::String(s)
+        _ => (),
     }
+    // TODO: 1234hello should probably be an error, not a number followed by an identifier.
+    // But 1234+hello is ok.
+    let val: f64 = scan.current_token().parse().unwrap();
+    Tok::Number(val)
+}
 
-    fn word(&mut self) -> Tok {
-        self.scan
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
-        let s: String = self.scan.current_token().to_owned();
-        match s.as_str() {
-            "true" => Tok::True,
-            "false" => Tok::False,
-            "nil" => Tok::Nil,
-            _ => Tok::Identifier(s),
-        }
+fn string(scan: &mut Scan) -> Tok {
+    // TODO: Handle backslash escapes.
+    // TODO: Clean error if the string is unterminated.
+    let mut s = String::new();
+    while let Some(c) = scan.take_if(|c| *c != '"') {
+        s.push(c)
+    }
+    if !scan.take_exactly('"') {
+        panic!(
+            "unterminated string starting on line {}",
+            scan.current_token_start_line()
+        );
+    }
+    Tok::String(s)
+}
+
+fn word(scan: &mut Scan) -> Tok {
+    scan.take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
+    match scan.current_token() {
+        "true" => Tok::True,
+        "false" => Tok::False,
+        "nil" => Tok::Nil,
+        s => Tok::Identifier(s.to_owned()),
     }
 }
 

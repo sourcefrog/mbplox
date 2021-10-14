@@ -103,15 +103,29 @@ impl<'s> Lexer<'s> {
                     continue; // drop the comment
                 }
                 '/' => Tok::Slash,
+                ';' => Tok::Semicolon,
+                ',' => Tok::Comma,
+                '!' if self.scan.take_exactly('=') => Tok::BangEqual,
+                '!' => Tok::Bang,
+                '=' if self.scan.take_exactly('=') => Tok::EqualEqual,
+                '=' => Tok::Equal,
                 '0'..='9' => self.number(),
                 '{' => Tok::LeftBrace,
                 '}' => Tok::RightBrace,
                 '(' => Tok::LeftParen,
                 ')' => Tok::RightParen,
+                '<' if self.scan.take_exactly('=') => Tok::LessEqual,
+                '<' => Tok::Less,
+                '>' if self.scan.take_exactly('=') => Tok::GreaterEqual,
+                '>' => Tok::Greater,
                 '"' => self.string(),
                 ch if ch.is_ascii_alphabetic() => self.word(),
                 '_' => self.word(),
-                other => panic!("unhandled character {:?}", other),
+                other => panic!(
+                    "unhandled character {:?} on line {}",
+                    other,
+                    self.scan.current_token_start_line()
+                ),
             };
             self.tokens.push(Token {
                 tok,
@@ -125,11 +139,13 @@ impl<'s> Lexer<'s> {
         self.scan.take_while(|c| c.is_ascii_digit());
         match self.scan.peek2() {
             Some(('.', cc)) if cc.is_ascii_digit() => {
-                self.scan.take_exactly(&'.').unwrap();
+                assert!(self.scan.take_exactly('.'));
                 self.scan.take_while(|c| c.is_ascii_digit());
             }
             _ => (),
         }
+        // TODO: 1234hello should probably be an error, not a number followed by an identifier.
+        // But 1234+hello is ok.
         let val: f64 = self.scan.current_token::<String>().parse().unwrap();
         Tok::Number(val)
     }
@@ -141,8 +157,11 @@ impl<'s> Lexer<'s> {
         while let Some(c) = self.scan.take_if(|c| *c != '"') {
             s.push(c)
         }
-        if self.scan.take_exactly(&'"').is_none() {
-            panic!("unterminated string");
+        if !self.scan.take_exactly('"') {
+            panic!(
+                "unterminated string starting on line {}",
+                self.scan.current_token_start_line()
+            );
         }
         Tok::String(s)
     }

@@ -12,6 +12,6 @@ use expect::assert_expected_for_dir;
 /// For every source file in the `lex` subdirectory, the tokens recognized by
 /// the lexer match those given in the `// expect:` comments within the file.
 #[test]
-fn lex_tokens_from_samples() {
-    assert_expected_for_dir(&Path::new("tests/lex"), &["--dump-tokens"]);
+fn lex_tokens_from_testdata() {
+    assert_expected_for_dir(&Path::new("testdata/lex"), &["--dump-tokens"]);
 }

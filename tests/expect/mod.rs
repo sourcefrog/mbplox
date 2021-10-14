@@ -31,10 +31,14 @@ pub fn assert_expected_for_dir(dir: &Path, args: &[&str]) {
 /// Run mbplox on a file with given arguments, and check that the output matches the expectations
 /// in the file.
 fn assert_expected(filename: &Path, args: &[&str]) {
-    dbg!(&filename);
-    dbg!(&args);
-    let output = common::mbplox().args(args).arg(filename).unwrap();
+    println!("mbplox {} {}", args.join(" "), filename.display());
+    let output = common::mbplox().args(args).arg(filename).output().unwrap();
+    if !output.stderr.is_empty() {
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+    }
     assert!(output.status.success());
+    // Possibly this should compare the multi-line strings, rather than lists of strings, but that
+    // would need more care to work consistently on Windows...
     let output_string = String::from_utf8(output.stdout).unwrap();
     let output_lines: Vec<&str> = output_string.lines().collect();
     assert_eq!(output_lines, expectations_from_file(filename));

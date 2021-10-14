@@ -99,8 +99,10 @@ where
         }
     }
 
-    pub fn take_exactly(&mut self, c: &C) -> Option<C> {
-        self.take_if(|cc| *cc == *c)
+    /// If the next character is `c` then consume it and return true;
+    /// otherwise leave it alone and return false.
+    pub fn take_exactly(&mut self, c: C) -> bool {
+        self.take_if(|cc| *cc == c).is_some()
     }
 
     pub fn peek(&mut self) -> Option<&C> {

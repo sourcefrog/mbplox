@@ -1,0 +1,22 @@
+// Based on https://github.com/munificent/craftinginterpreters/blob/master/test/scanning/punctuators.lox
+(){};,+-*!===<=>=!=<>/!.
+
+// expect: LeftParen
+// expect: RightParen
+// expect: LeftBrace
+// expect: RightBrace
+// expect: Semicolon
+// expect: Comma
+// expect: Plus
+// expect: Minus
+// expect: Star
+// expect: BangEqual
+// expect: EqualEqual
+// expect: LessEqual
+// expect: GreaterEqual
+// expect: BangEqual
+// expect: Less
+// expect: Greater
+// expect: Slash
+// expect: Bang
+// expect: Dot

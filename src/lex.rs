@@ -71,7 +71,7 @@ pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
 }
 
 struct Lexer<'s> {
-    scan: Scan<char, std::str::Chars<'s>>,
+    scan: Scan<'s>,
     tokens: Vec<Token>,
 }
 
@@ -79,7 +79,7 @@ impl<'s> Lexer<'s> {
     /// Construct a Lexer containing the tokens in the source.
     pub fn new(source: &str) -> Lexer {
         let mut lex = Lexer {
-            scan: Scan::new(source.chars()),
+            scan: Scan::new(source),
             tokens: Vec::new(),
         };
         lex.lex();
@@ -129,7 +129,7 @@ impl<'s> Lexer<'s> {
             };
             self.tokens.push(Token {
                 tok,
-                lexeme: self.scan.current_token(),
+                lexeme: self.scan.current_token().to_owned(),
                 line: self.scan.current_token_start_line(),
             });
         }
@@ -146,7 +146,7 @@ impl<'s> Lexer<'s> {
         }
         // TODO: 1234hello should probably be an error, not a number followed by an identifier.
         // But 1234+hello is ok.
-        let val: f64 = self.scan.current_token::<String>().parse().unwrap();
+        let val: f64 = self.scan.current_token().parse().unwrap();
         Tok::Number(val)
     }
 
@@ -169,7 +169,7 @@ impl<'s> Lexer<'s> {
     fn word(&mut self) -> Tok {
         self.scan
             .take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
-        let s: String = self.scan.current_token();
+        let s: String = self.scan.current_token().to_owned();
         match s.as_str() {
             "true" => Tok::True,
             "false" => Tok::False,

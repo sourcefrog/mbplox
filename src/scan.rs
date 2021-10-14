@@ -2,35 +2,27 @@
 
 //! Scan text as characters, with peek-ahead, tracking line numbers,
 //! and remembering the characters in each token.
+//!
+//! This layer knows nothing about the syntax of Lox, only how to generically scan a text file.
 
 /// Scan characters with arbitrary lookahead.
 ///
 /// Provides low-level char parsing without knowing anything specific about the
 /// grammar.
-///
-/// Type parameter `C` is typically `char` but could be `u8` etc.
-pub struct Scan<C, I>
-where
-    I: Iterator<Item = C>,
-    C: PartialEq + Clone + IsNewline,
-{
-    inner: I,
-    buf: Vec<C>,
-    current_token: Vec<C>,
+pub struct Scan<'a> {
+    input: std::str::Chars<'a>,
+    lookahead: Vec<char>,
+    current_token: String,
     token_start_line: usize,
     line_number: usize,
 }
 
-impl<C, I> Scan<C, I>
-where
-    I: Iterator<Item = C>,
-    C: PartialEq + Clone + IsNewline,
-{
-    pub fn new(inner: I) -> Scan<C, I> {
+impl<'a> Scan<'a> {
+    pub fn new(source: &'a str) -> Scan<'a> {
         Scan {
-            inner,
-            buf: Vec::new(),
-            current_token: Vec::new(),
+            input: source.chars(),
+            lookahead: Vec::new(),
+            current_token: String::new(),
             line_number: 1,
             token_start_line: 1,
         }
@@ -42,11 +34,8 @@ where
     }
 
     /// Return all the atoms recognized since the last [Scan::start_token].
-    pub fn current_token<S>(&self) -> S
-    where
-        S: std::iter::FromIterator<C>,
-    {
-        self.current_token.iter().cloned().collect::<S>()
+    pub fn current_token(&self) -> &str {
+        &self.current_token
     }
 
     pub fn current_token_start_line(&self) -> usize {
@@ -57,22 +46,28 @@ where
     ///
     /// All consumption should go through here to maintain invariants, including
     /// line numbering and accumulating the current token.
-    pub fn take(&mut self) -> Option<C> {
-        let c = if self.buf.is_empty() {
-            self.inner.next()?
+    ///
+    /// Returns None at the end of the input.
+    pub fn take(&mut self) -> Option<char> {
+        let c = if self.lookahead.is_empty() {
+            self.input.next()?
         } else {
-            self.buf.remove(0)
+            self.lookahead.remove(0)
         };
-        if c.is_newline() {
+        if c == '\n' {
             self.line_number += 1;
         }
         self.current_token.push(c.clone());
         Some(c)
     }
 
-    pub fn take_if<F>(&mut self, f: F) -> Option<C>
+    /// Consume and return the next character if it matches a predicate,
+    /// otherwise leave it alone and return None.
+    ///
+    /// Returns None at the end of the input.
+    pub fn take_if<F>(&mut self, f: F) -> Option<char>
     where
-        F: Fn(&C) -> bool,
+        F: Fn(&char) -> bool,
     {
         match self.peek() {
             None => None,
@@ -86,12 +81,20 @@ where
         }
     }
 
-    pub fn take_while(&mut self, f: fn(&C) -> bool) {
-        while self.take_if(f).is_some() {}
+    /// Consume characters while they match a predicate.
+    ///
+    /// Consumed characters are accumulated into current_token but not returned.
+    pub fn take_while<F>(&mut self, f: F)
+    where
+        F: Fn(&char) -> bool,
+    {
+        while self.take_if(&f).is_some() {}
     }
 
     /// Take characters up to and including a terminator.
-    pub fn take_until(&mut self, f: fn(&C) -> bool) {
+    ///
+    /// Consumed characters are accumulated into current_token but not returned.
+    pub fn take_until(&mut self, f: fn(&char) -> bool) {
         while let Some(c) = self.take() {
             if f(&c) {
                 break;
@@ -101,44 +104,37 @@ where
 
     /// If the next character is `c` then consume it and return true;
     /// otherwise leave it alone and return false.
-    pub fn take_exactly(&mut self, c: C) -> bool {
+    pub fn take_exactly(&mut self, c: char) -> bool {
         self.take_if(|cc| *cc == c).is_some()
     }
 
-    pub fn peek(&mut self) -> Option<&C> {
+    /// Peek at the next character, if there is one, without consuming it.
+    pub fn peek(&mut self) -> Option<&char> {
         self.peek_nth(0)
     }
 
-    pub fn peek2(&mut self) -> Option<(&C, &C)> {
+    /// Peek at the next two characters, if there are two more characters, without consuming them.
+    pub fn peek2(&mut self) -> Option<(&char, &char)> {
         if self.peek_nth(1).is_some() {
-            Some((&self.buf[0], &self.buf[1]))
+            Some((&self.lookahead[0], &self.lookahead[1]))
         } else {
             None
         }
     }
 
-    pub fn peek_nth(&mut self, n: usize) -> Option<&C> {
-        while self.buf.len() <= n {
-            if let Some(c) = self.inner.next() {
-                self.buf.push(c)
+    pub fn peek_nth(&mut self, n: usize) -> Option<&char> {
+        while self.lookahead.len() <= n {
+            if let Some(c) = self.input.next() {
+                self.lookahead.push(c)
             } else {
                 return None;
             }
         }
-        Some(&self.buf[n])
+        Some(&self.lookahead[n])
     }
 
+    /// Return true if the scanner is at the end of the input.
     pub fn is_empty(&mut self) -> bool {
         self.peek().is_none()
-    }
-}
-
-pub trait IsNewline {
-    fn is_newline(&self) -> bool;
-}
-
-impl IsNewline for char {
-    fn is_newline(&self) -> bool {
-        *self == '\n'
     }
 }

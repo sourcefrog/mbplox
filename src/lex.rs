@@ -98,7 +98,7 @@ impl<'s> Lexer<'s> {
                 '*' => Tok::Star,
                 '-' => Tok::Minus,
                 '.' => Tok::Dot,
-                '/' if self.scan.peek() == Some(&'/') => {
+                '/' if self.scan.peek() == Some('/') => {
                     self.scan.take_until(|cc| *cc == '\n');
                     continue; // drop the comment
                 }

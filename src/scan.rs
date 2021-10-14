@@ -69,16 +69,7 @@ impl<'a> Scan<'a> {
     where
         F: Fn(&char) -> bool,
     {
-        match self.peek() {
-            None => None,
-            Some(c) => {
-                if f(c) {
-                    self.take()
-                } else {
-                    None
-                }
-            }
-        }
+        self.peek().filter(|c| f(c)).and_then(|_c| self.take())
     }
 
     /// Consume characters while they match a predicate.
@@ -109,20 +100,20 @@ impl<'a> Scan<'a> {
     }
 
     /// Peek at the next character, if there is one, without consuming it.
-    pub fn peek(&mut self) -> Option<&char> {
+    pub fn peek(&mut self) -> Option<char> {
         self.peek_nth(0)
     }
 
     /// Peek at the next two characters, if there are two more characters, without consuming them.
-    pub fn peek2(&mut self) -> Option<(&char, &char)> {
+    pub fn peek2(&mut self) -> Option<(char, char)> {
         if self.peek_nth(1).is_some() {
-            Some((&self.lookahead[0], &self.lookahead[1]))
+            Some((self.lookahead[0], self.lookahead[1]))
         } else {
             None
         }
     }
 
-    pub fn peek_nth(&mut self, n: usize) -> Option<&char> {
+    fn peek_nth(&mut self, n: usize) -> Option<char> {
         while self.lookahead.len() <= n {
             if let Some(c) = self.input.next() {
                 self.lookahead.push(c)
@@ -130,7 +121,7 @@ impl<'a> Scan<'a> {
                 return None;
             }
         }
-        Some(&self.lookahead[n])
+        Some(self.lookahead[n])
     }
 
     /// Return true if the scanner is at the end of the input.

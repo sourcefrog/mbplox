@@ -1,4 +1,7 @@
+#! mbplox --dump-tokens
+
 // Based on https://github.com/munificent/craftinginterpreters/blob/master/test/scanning/punctuators.lox
+
 (){};,+-*!===<=>=!=<>/!.
 
 // expect: LeftParen

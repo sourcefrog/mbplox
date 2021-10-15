@@ -105,6 +105,11 @@ pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
             '>' => Tok::Greater,
             '"' => string(&mut scan),
             ch if ch.is_ascii_alphabetic() || ch == '_' => word(&mut scan),
+            '#' if scan.next_column() == 2 && scan.take_exactly('!') => {
+                // drop shebang line
+                scan.take_until(|cc| *cc == '\n');
+                continue;
+            }
             other => panic!(
                 "unhandled character {:?} on line {} column {}",
                 other,
@@ -313,6 +318,20 @@ between\tthese\t\twords
                 .map(|t| (t.line, t.column))
                 .collect::<Vec<_>>(),
             &[(2, 9), (3, 17), (4, 21), (5, 9), (6, 1), (6, 9), (6, 25)]
+        );
+    }
+
+    #[test]
+    fn ignore_shebang() {
+        let tokens = lex_tokens("#! mbplox --yolo\n#! maybe also a second line\n123\n");
+        assert_eq!(
+            tokens,
+            [Token {
+                tok: Tok::Number(123.0),
+                line: 3,
+                column: 1,
+                lexeme: "123".to_owned(),
+            }]
         );
     }
 }

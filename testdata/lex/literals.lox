@@ -1,3 +1,5 @@
+#! mbplox --dump-tokens
+
 1234            // expect: Number(1234.0)
 true            // expect: True
 nil             // expect: Nil

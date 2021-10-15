@@ -18,21 +18,15 @@ use std::path::{Path, PathBuf};
 
 use pretty_assertions::assert_eq;
 
-/// For every source file in the `lex` subdirectory, the tokens recognized by
-/// the lexer match those given in the `// expect:` comments within the file.
+/// For every source file in the `testdata` directory, run the interpreter with optionr given in
+/// the file, and check the output matches the expectations.
 #[test]
-fn lex_tokens_from_testdata() {
-    assert_expected_for_dir(&Path::new("testdata/lex"));
-}
-
-/// Run mbplox on every `.lox` file in a given directory, and check the output
-/// matches the given expectations.
-pub fn assert_expected_for_dir(dir: &Path) {
+fn testdata_cases() {
     let mut found_any_files = false;
-    for file_path in fs::read_dir(dir)
-        .unwrap()
+    for file_path in walkdir::WalkDir::new("testdata")
+        .into_iter()
         .map(Result::unwrap)
-        .map(|de| de.path())
+        .map(|de| de.into_path())
         .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("lox"))
     {
         found_any_files = true;

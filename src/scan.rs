@@ -15,6 +15,10 @@ pub struct Scan<'a> {
     current_token: String,
     token_start_line: usize,
     line_number: usize,
+    /// 1-based column of the character *about to be* taken.
+    column: usize,
+    /// 1-based column of the first character of the current token.
+    token_start_column: usize,
 }
 
 impl<'a> Scan<'a> {
@@ -24,13 +28,16 @@ impl<'a> Scan<'a> {
             lookahead: Vec::new(),
             current_token: String::new(),
             line_number: 1,
+            column: 1,
             token_start_line: 1,
+            token_start_column: 1,
         }
     }
 
     pub fn start_token(&mut self) {
         self.current_token.clear();
         self.token_start_line = self.line_number;
+        self.token_start_column = self.column;
     }
 
     /// Return all the atoms recognized since the last [Scan::start_token].
@@ -38,8 +45,18 @@ impl<'a> Scan<'a> {
         &self.current_token
     }
 
-    pub fn current_token_start_line(&self) -> usize {
+    pub fn token_start_line(&self) -> usize {
         self.token_start_line
+    }
+
+    /// Return the 1-based column at which the current token started.
+    pub fn token_start_column(&self) -> usize {
+        self.token_start_column
+    }
+
+    /// Return the 1-based column of the next character that will be returned by [Scan::take].
+    pub fn next_column(&self) -> usize {
+        self.column
     }
 
     /// Consume and return one character.
@@ -56,6 +73,17 @@ impl<'a> Scan<'a> {
         };
         if c == '\n' {
             self.line_number += 1;
+            self.column = 1;
+        } else if c == '\t' {
+            // Increment at least one column, and continue until reaching an 8-aligned tab stop.
+            loop {
+                self.column += 1;
+                if self.column % 8 == 1 {
+                    break;
+                }
+            }
+        } else {
+            self.column += 1;
         }
         self.current_token.push(c.clone());
         Some(c)

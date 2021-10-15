@@ -57,6 +57,8 @@ pub struct Token {
     pub tok: Tok,
     /// 1-based source line where it occurs.
     pub line: usize,
+    /// 1-based column for the start of the token.
+    pub column: usize,
     /// Literal content of the lexeme.
     pub lexeme: String,
 }
@@ -104,15 +106,17 @@ pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
             '"' => string(&mut scan),
             ch if ch.is_ascii_alphabetic() || ch == '_' => word(&mut scan),
             other => panic!(
-                "unhandled character {:?} on line {}",
+                "unhandled character {:?} on line {} column {}",
                 other,
-                scan.current_token_start_line()
+                scan.token_start_line(),
+                scan.token_start_column(),
             ),
         };
         tokens.push(Token {
             tok,
             lexeme: scan.current_token().to_owned(),
-            line: scan.current_token_start_line(),
+            line: scan.token_start_line(),
+            column: scan.token_start_column(),
         });
     }
     (tokens, errors)
@@ -142,8 +146,9 @@ fn string(scan: &mut Scan) -> Tok {
     }
     if !scan.take_exactly('"') {
         panic!(
-            "unterminated string starting on line {}",
-            scan.current_token_start_line()
+            "unterminated string starting on line {} column {}",
+            scan.token_start_line(),
+            scan.token_start_column(),
         );
     }
     Tok::String(s)
@@ -182,6 +187,7 @@ mod test {
             &[Token {
                 tok: Tok::Number(12345.0),
                 line: 1,
+                column: 1,
                 lexeme: "12345".to_owned(),
             }],
         );
@@ -200,16 +206,18 @@ mod test {
     #[test]
     fn skip_comments() {
         assert_eq!(
-            lex_tokens("1\n// two would be here\n\n3.000\n\n// the end!\n"),
+            lex_tokens("1\n// two would be here\n\n    3.000\n\n// the end!\n"),
             vec![
                 Token {
                     tok: Tok::Number(1.0),
                     line: 1,
+                    column: 1,
                     lexeme: "1".to_owned(),
                 },
                 Token {
                     tok: Tok::Number(3.0),
                     line: 4,
+                    column: 5,
                     lexeme: "3.000".to_owned()
                 },
             ]
@@ -233,6 +241,7 @@ mod test {
             vec![Token {
                 tok: Tok::String("hello Lox?".to_owned()),
                 line: 1,
+                column: 1,
                 lexeme: r#""hello Lox?""#.to_owned(),
             }]
         );
@@ -246,6 +255,7 @@ mod test {
             vec![Token {
                 tok: Tok::String("one\nokapi\ntwo\n".to_owned()),
                 line: 1,
+                column: 1,
                 lexeme: src.to_owned(),
             }]
         );
@@ -279,6 +289,30 @@ mod test {
         assert_eq!(
             lex_toks(src),
             [Tok::Plus, Tok::Minus, Tok::Star, Tok::Slash]
+        );
+    }
+
+    #[test]
+    fn column_positions_understand_tabs() {
+        let tokens = lex_tokens(
+            "
+\tone_tab
+\t\ttwo_tabs
+\t\t    two_tabs_and_space
+    \ttab_after_spaces
+between\tthese\t\twords
+    ",
+        );
+        assert_eq!(tokens.len(), 7);
+        assert!(tokens
+            .iter()
+            .all(|token| matches!(token.tok, Tok::Identifier(_))));
+        assert_eq!(
+            tokens
+                .iter()
+                .map(|t| (t.line, t.column))
+                .collect::<Vec<_>>(),
+            &[(2, 9), (3, 17), (4, 21), (5, 9), (6, 1), (6, 9), (6, 25)]
         );
     }
 }

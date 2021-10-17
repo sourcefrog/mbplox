@@ -35,12 +35,9 @@ impl Place {
             self.line += 1;
             self.column = 1;
         } else if c == '\t' {
-            // Increment at least one column, and continue until reaching an 8-aligned tab stop.
-            loop {
+            self.column += 1;
+            while self.column % 8 != 1 {
                 self.column += 1;
-                if self.column % 8 == 1 {
-                    break;
-                }
             }
         } else {
             self.column += 1;

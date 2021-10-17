@@ -4,6 +4,7 @@
 
 use crate::scan::Scan;
 
+#[allow(unused)] // Just while half-implemented.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Tok {
     Plus,
@@ -72,7 +73,7 @@ pub struct Error {
 pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
     let mut scan = Scan::new(source);
     let mut tokens = Vec::new();
-    let mut errors = Vec::new();
+    let errors = Vec::new();
     while !scan.is_empty() {
         scan.start_token();
         let tok = match scan.take().unwrap() {

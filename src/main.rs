@@ -2,9 +2,6 @@
 
 //! An interpreter for the Lox small language from *Crafting Interpreters*.
 
-// Just while half-implemented.
-#![allow(unused, dead_code, unused_imports)]
-
 use std::fs;
 use std::path::PathBuf;
 

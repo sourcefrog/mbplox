@@ -1,5 +1,9 @@
 // Copyright 2021 Martin Pool
 
+//! An abstract syntax tree that represents the structure of Lox code.
+
+#![allow(dead_code)] // Just while half-implemented.
+
 use crate::value::Value;
 
 #[derive(Debug, PartialEq)]

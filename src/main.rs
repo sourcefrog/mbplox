@@ -11,6 +11,7 @@ mod ast;
 mod eval;
 mod lex;
 mod parse;
+mod place;
 mod scan;
 mod value;
 

@@ -5,6 +5,8 @@
 //!
 //! This layer knows nothing about the syntax of Lox, only how to generically scan a text file.
 
+use crate::place::Place;
+
 /// Scan characters with arbitrary lookahead.
 ///
 /// Provides low-level char parsing without knowing anything specific about the
@@ -13,12 +15,10 @@ pub struct Scan<'a> {
     input: std::str::Chars<'a>,
     lookahead: Vec<char>,
     current_token: String,
-    token_start_line: usize,
-    line_number: usize,
-    /// 1-based column of the character *about to be* taken.
-    column: usize,
-    /// 1-based column of the first character of the current token.
-    token_start_column: usize,
+    /// Location in the source of the character *about to be* taken.
+    next_place: Place,
+    /// Location in the source of the token currently being recognized.
+    token_start: Place,
 }
 
 impl<'a> Scan<'a> {
@@ -27,17 +27,14 @@ impl<'a> Scan<'a> {
             input: source.chars(),
             lookahead: Vec::new(),
             current_token: String::new(),
-            line_number: 1,
-            column: 1,
-            token_start_line: 1,
-            token_start_column: 1,
+            next_place: Place::file_start(),
+            token_start: Place::file_start(),
         }
     }
 
     pub fn start_token(&mut self) {
         self.current_token.clear();
-        self.token_start_line = self.line_number;
-        self.token_start_column = self.column;
+        self.token_start = self.next_place;
     }
 
     /// Return all the atoms recognized since the last [Scan::start_token].
@@ -45,18 +42,14 @@ impl<'a> Scan<'a> {
         &self.current_token
     }
 
-    pub fn token_start_line(&self) -> usize {
-        self.token_start_line
-    }
-
-    /// Return the 1-based column at which the current token started.
-    pub fn token_start_column(&self) -> usize {
-        self.token_start_column
+    /// Return the [Place] where the current token starts.
+    pub fn token_start(&self) -> Place {
+        self.token_start
     }
 
     /// Return the 1-based column of the next character that will be returned by [Scan::take].
     pub fn next_column(&self) -> usize {
-        self.column
+        self.next_place.column
     }
 
     /// Consume and return one character.
@@ -71,20 +64,7 @@ impl<'a> Scan<'a> {
         } else {
             self.lookahead.remove(0)
         };
-        if c == '\n' {
-            self.line_number += 1;
-            self.column = 1;
-        } else if c == '\t' {
-            // Increment at least one column, and continue until reaching an 8-aligned tab stop.
-            loop {
-                self.column += 1;
-                if self.column % 8 == 1 {
-                    break;
-                }
-            }
-        } else {
-            self.column += 1;
-        }
+        self.next_place.advance(c);
         self.current_token.push(c.clone());
         Some(c)
     }

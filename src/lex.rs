@@ -2,6 +2,7 @@
 
 //! Lex text into tokens.
 
+use crate::place::Place;
 use crate::scan::Scan;
 
 #[allow(unused)] // Just while half-implemented.
@@ -56,10 +57,8 @@ pub enum Tok {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub tok: Tok,
-    /// 1-based source line where it occurs.
-    pub line: usize,
-    /// 1-based column for the start of the token.
-    pub column: usize,
+    /// Place where this token starts.
+    pub place: Place,
     /// Literal content of the lexeme.
     pub lexeme: String,
 }
@@ -111,18 +110,12 @@ pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
                 scan.take_until(|cc| *cc == '\n');
                 continue;
             }
-            other => panic!(
-                "unhandled character {:?} on line {} column {}",
-                other,
-                scan.token_start_line(),
-                scan.token_start_column(),
-            ),
+            other => panic!("unhandled character {:?} at {}", other, scan.token_start(),),
         };
         tokens.push(Token {
             tok,
             lexeme: scan.current_token().to_owned(),
-            line: scan.token_start_line(),
-            column: scan.token_start_column(),
+            place: scan.token_start(),
         });
     }
     (tokens, errors)
@@ -151,11 +144,7 @@ fn string(scan: &mut Scan) -> Tok {
         s.push(c)
     }
     if !scan.take_exactly('"') {
-        panic!(
-            "unterminated string starting on line {} column {}",
-            scan.token_start_line(),
-            scan.token_start_column(),
-        );
+        panic!("unterminated string starting at {}", scan.token_start(),);
     }
     Tok::String(s)
 }
@@ -192,8 +181,7 @@ mod test {
             lex_tokens("12345"),
             &[Token {
                 tok: Tok::Number(12345.0),
-                line: 1,
-                column: 1,
+                place: Place::new(1, 1),
                 lexeme: "12345".to_owned(),
             }],
         );
@@ -216,14 +204,12 @@ mod test {
             vec![
                 Token {
                     tok: Tok::Number(1.0),
-                    line: 1,
-                    column: 1,
+                    place: Place::new(1, 1),
                     lexeme: "1".to_owned(),
                 },
                 Token {
                     tok: Tok::Number(3.0),
-                    line: 4,
-                    column: 5,
+                    place: Place::new(4, 5),
                     lexeme: "3.000".to_owned()
                 },
             ]
@@ -246,8 +232,7 @@ mod test {
             lex_tokens(r#""hello Lox?""#),
             vec![Token {
                 tok: Tok::String("hello Lox?".to_owned()),
-                line: 1,
-                column: 1,
+                place: Place::new(1, 1),
                 lexeme: r#""hello Lox?""#.to_owned(),
             }]
         );
@@ -260,8 +245,7 @@ mod test {
             lex_tokens(src),
             vec![Token {
                 tok: Tok::String("one\nokapi\ntwo\n".to_owned()),
-                line: 1,
-                column: 1,
+                place: Place::new(1, 1),
                 lexeme: src.to_owned(),
             }]
         );
@@ -316,7 +300,7 @@ between\tthese\t\twords
         assert_eq!(
             tokens
                 .iter()
-                .map(|t| (t.line, t.column))
+                .map(|t| (t.place.line, t.place.column))
                 .collect::<Vec<_>>(),
             &[(2, 9), (3, 17), (4, 21), (5, 9), (6, 1), (6, 9), (6, 25)]
         );
@@ -329,8 +313,7 @@ between\tthese\t\twords
             tokens,
             [Token {
                 tok: Tok::Number(123.0),
-                line: 3,
-                column: 1,
+                place: Place::new(3, 1),
                 lexeme: "123".to_owned(),
             }]
         );

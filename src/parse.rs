@@ -31,12 +31,12 @@ fn parse_literal(tokens: &[Token]) -> Result<(Expr, &[Token])> {
     .ok_or(anyhow!("not a literal"))
 }
 
-/// Parse a unary expression:
-///
-/// unary          → ( "-" | "!" ) expression ;
-fn parse_unary(_tokens: &[Token]) -> Result<(Expr, &[Token])> {
-    todo!()
-}
+///// Parse a unary expression:
+/////
+///// unary          → ( "-" | "!" ) expression ;
+//fn parse_unary(_tokens: &[Token]) -> Result<(Expr, &[Token])> {
+//    todo!()
+//}
 
 /// Parse any expression
 ///

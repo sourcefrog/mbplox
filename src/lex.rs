@@ -5,7 +5,6 @@
 use crate::place::Place;
 use crate::scan::Scan;
 
-#[allow(unused)] // Just while half-implemented.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Tok {
     Plus,
@@ -152,9 +151,22 @@ fn string(scan: &mut Scan) -> Tok {
 fn word(scan: &mut Scan) -> Tok {
     scan.take_while(|c| c.is_ascii_alphanumeric() || *c == '_');
     match scan.current_token() {
-        "true" => Tok::True,
+        "and" => Tok::And,
+        "class" => Tok::Class,
+        "else" => Tok::Else,
         "false" => Tok::False,
+        "for" => Tok::For,
+        "fun" => Tok::Fun,
+        "if" => Tok::If,
         "nil" => Tok::Nil,
+        "or" => Tok::Or,
+        "print" => Tok::Print,
+        "return" => Tok::Return,
+        "super" => Tok::Super,
+        "this" => Tok::This,
+        "true" => Tok::True,
+        "var" => Tok::Var,
+        "while" => Tok::While,
         s => Tok::Identifier(s.to_owned()),
     }
 }

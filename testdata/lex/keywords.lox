@@ -1,0 +1,23 @@
+#! mbplox --dump-tokens
+
+// Based on https://github.com/munificent/craftinginterpreters/blob/master/test/scanning/keywords.lox
+
+and class else false for fun if nil or print return super this true var while
+
+// expect: And
+// expect: Class
+// expect: Else
+// expect: False
+// expect: For
+// expect: Fun
+// expect: If
+// expect: Nil
+// expect: Or
+// expect: Print
+// expect: Return
+// expect: Super
+// expect: This
+// expect: True
+// expect: Var
+// expect: While
+

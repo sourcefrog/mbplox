@@ -25,10 +25,8 @@ use crate::value::Value;
 
 /// Parse a literal value: string, number, bool, or nil.
 fn parse_literal(tokens: &[Token]) -> Result<(Expr, &[Token])> {
-    take_if(tokens, |t| {
-        Value::from_literal_token(t).map(|v| Expr::Literal(v))
-    })
-    .ok_or(anyhow!("not a literal"))
+    take_if(tokens, |t| Value::from_literal_token(t).map(Expr::Literal))
+        .ok_or(anyhow!("not a literal"))
 }
 
 ///// Parse a unary expression:
@@ -59,10 +57,7 @@ pub fn parse_expr(tokens: &[Token]) -> Result<(Expr, &[Token])> {
 
 /// Parse and consume one element if the function matches it.
 fn take_if<T>(tokens: &[Token], match_fn: fn(&Token) -> Option<T>) -> Option<(T, &[Token])> {
-    tokens
-        .first()
-        .and_then(match_fn)
-        .and_then(|t| Some((t, &tokens[1..])))
+    tokens.first().and_then(match_fn).map(|t| (t, &tokens[1..]))
 }
 
 #[cfg(test)]

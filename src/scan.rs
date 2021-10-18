@@ -65,7 +65,7 @@ impl<'a> Scan<'a> {
             self.lookahead.remove(0)
         };
         self.next_place.advance(c);
-        self.current_token.push(c.clone());
+        self.current_token.push(c);
         Some(c)
     }
 

@@ -73,8 +73,10 @@ mod test {
     /// Parse a string, expecting that there are no errors and nothing
     /// remaining unparsed.
     fn parse_exactly(source: &str, parse_fn: fn(&[Token]) -> Result<(Expr, &[Token])>) -> Expr {
-        let (tokens, errs) = lex(source);
-        assert_eq!(errs.len(), 0);
+        let tokens = lex(source)
+            .into_iter()
+            .map(Result::unwrap)
+            .collect::<Vec<Token>>();
         let (expr, remaining) = parse_fn(&tokens).unwrap();
         assert_eq!(remaining.len(), 0);
         expr

@@ -1,10 +1,16 @@
 // Copyright 2021 Martin Pool
 
 //! Lex text into tokens.
+//!
+//! This is the lower level of parsing.
+
+use std::fmt;
 
 use crate::place::Place;
 use crate::scan::Scan;
 
+/// A specific type of lexical tokens, including the embedded value of literals, and the identifier
+/// string for identifiers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Tok {
     Plus,
@@ -53,25 +59,56 @@ pub enum Tok {
     While,
 }
 
+/// A lexical token.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub tok: Tok,
     /// Place where this token starts.
     pub place: Place,
     /// Literal content of the lexeme.
+    // TODO: Is the lexeme ever really needed?
     pub lexeme: String,
 }
 
+/// An error while tokenizing source.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Error {
-    // TODO
+    /// Place in the source where the error occurred.
+    pub place: Place,
+    /// Type of lexer error.
+    pub kind: ErrorKind,
 }
 
-/// Lex some Lox source into a vec of tokens, and a vec of any errors encountered in scanning the
-/// source.
-pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
+impl fmt::Display for Error {
+    // TODO: Maybe move this to a common error-printing trait across all error classes.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}] Error: {}.", self.place, self.kind)
+    }
+}
+
+/// A specific kind of tokenization error.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorKind {
+    /// A character that just can't occur in mbplox.
+    UnexpectedCharacter(char),
+    /// A double-quoted string was still open at the end of the file.
+    UnterminatedString,
+}
+
+impl fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ErrorKind::*;
+        match self {
+            UnexpectedCharacter(ch) => write!(f, "unexpected character {:?}", ch),
+            UnterminatedString => write!(f, "unterminated string"),
+        }
+    }
+}
+
+/// Lex some Lox source into a vec of tokens and tokenization errors.
+pub fn lex(source: &str) -> Vec<Result<Token, Error>> {
     let mut scan = Scan::new(source);
-    let mut tokens = Vec::new();
-    let errors = Vec::new();
+    let mut result = Vec::new();
     while !scan.is_empty() {
         scan.start_token();
         let tok = match scan.take().unwrap() {
@@ -102,50 +139,66 @@ pub fn lex(source: &str) -> (Vec<Token>, Vec<Error>) {
             '<' => Tok::Less,
             '>' if scan.take_exactly('=') => Tok::GreaterEqual,
             '>' => Tok::Greater,
-            '"' => string(&mut scan),
+            '"' => {
+                result.push(string(&mut scan));
+                continue;
+            }
             ch if ch.is_ascii_alphabetic() || ch == '_' => word(&mut scan),
             '#' if scan.next_column() == 2 && scan.take_exactly('!') => {
                 // drop shebang line
                 scan.take_until(|cc| *cc == '\n');
                 continue;
             }
-            other => panic!("unhandled character {:?} at {}", other, scan.token_start(),),
+            other => {
+                result.push(Err(Error {
+                    place: scan.token_start(),
+                    kind: ErrorKind::UnexpectedCharacter(other),
+                }));
+                continue;
+            }
         };
-        tokens.push(Token {
+        result.push(Ok(Token {
             tok,
             lexeme: scan.current_token().to_owned(),
             place: scan.token_start(),
-        });
+        }));
     }
-    (tokens, errors)
+    result
 }
 
 fn number(scan: &mut Scan) -> Tok {
     scan.take_while(|c| c.is_ascii_digit());
     match scan.peek2() {
         Some(('.', cc)) if cc.is_ascii_digit() => {
-            assert!(scan.take_exactly('.'));
+            debug_assert!(scan.take_exactly('.'));
             scan.take_while(|c| c.is_ascii_digit());
         }
         _ => (),
     }
     // TODO: 1234hello should probably be an error, not a number followed by an identifier.
     // But 1234+hello is ok.
+    // TODO: Error if the f64 parse fails (but I don't think it ever can?)
     let val: f64 = scan.current_token().parse().unwrap();
     Tok::Number(val)
 }
 
-fn string(scan: &mut Scan) -> Tok {
+fn string(scan: &mut Scan) -> Result<Token, Error> {
     // TODO: Handle backslash escapes.
-    // TODO: Clean error if the string is unterminated.
     let mut s = String::new();
     while let Some(c) = scan.take_if(|c| *c != '"') {
         s.push(c)
     }
     if !scan.take_exactly('"') {
-        panic!("unterminated string starting at {}", scan.token_start(),);
+        return Err(Error {
+            place: scan.token_start(),
+            kind: ErrorKind::UnterminatedString,
+        });
     }
-    Tok::String(s)
+    Ok(Token {
+        tok: Tok::String(s),
+        place: scan.token_start(),
+        lexeme: scan.current_token().to_owned(),
+    })
 }
 
 fn word(scan: &mut Scan) -> Tok {
@@ -178,9 +231,8 @@ mod test {
     use super::*;
 
     fn lex_tokens(s: &str) -> Vec<Token> {
-        let (tokens, errs) = lex(s);
-        assert_eq!(errs.len(), 0);
-        tokens
+        let results = lex(s);
+        results.into_iter().map(Result::unwrap).collect()
     }
 
     fn lex_toks<'s>(s: &'s str) -> Vec<Tok> {
@@ -263,12 +315,15 @@ mod test {
         );
     }
 
-    #[should_panic]
     #[test]
-    fn unterminated_string_errors() {
-        let src = "\"going along...";
-        // TODO: Give a nice error rather than panic
-        let _v = lex_tokens(src);
+    fn unterminated_string_error() {
+        assert_eq!(
+            lex("\"going along..."),
+            [Err(Error {
+                kind: ErrorKind::UnterminatedString,
+                place: Place::file_start(),
+            })]
+        );
     }
 
     #[test]
@@ -328,6 +383,34 @@ between\tthese\t\twords
                 place: Place::new(3, 1),
                 lexeme: "123".to_owned(),
             }]
+        );
+    }
+
+    #[test]
+    fn lex_result_mixes_tokens_and_multiple_errors_in_order() {
+        let unexpected_hash = ErrorKind::UnexpectedCharacter('#');
+        assert_eq!(
+            lex("hash##bang\n"),
+            [
+                Ok(Token {
+                    tok: Tok::Identifier("hash".to_owned()),
+                    place: Place::new(1, 1),
+                    lexeme: "hash".to_owned(),
+                }),
+                Err(Error {
+                    place: Place::new(1, 5),
+                    kind: unexpected_hash.clone(),
+                }),
+                Err(Error {
+                    place: Place::new(1, 6),
+                    kind: unexpected_hash,
+                }),
+                Ok(Token {
+                    tok: Tok::Identifier("bang".to_owned()),
+                    place: Place::new(1, 7),
+                    lexeme: "bang".to_owned(),
+                }),
+            ]
         );
     }
 }

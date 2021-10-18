@@ -49,9 +49,12 @@ fn main() -> Result<()> {
     // TODO: If no sources then repl.
     if args.dump_tokens {
         for source in &all_sources {
-            let (tokens, _errs) = lex::lex(source);
-            for token in tokens {
-                println!("{:?}", token.tok);
+            for r in lex::lex(source) {
+                match r {
+                    Ok(token) => println!("{:?}", token.tok),
+                    Err(err) => println!("{}", err),
+                    // TODO: Remember we saw an error, and set the exit code.
+                }
             }
         }
     } else {

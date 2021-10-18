@@ -1,7 +1,11 @@
+// Copyright 2021 Martin Pool
+
+//! Evaluate Lox source.
+
 use anyhow::{anyhow, Result};
 
 use crate::ast;
-use crate::lex::lex;
+use crate::lex::{lex, Token};
 use crate::parse;
 use crate::value::Value;
 
@@ -13,9 +17,10 @@ impl Interpreter {
     }
 
     pub fn eval(&mut self, source: &str) -> Result<Value> {
-        let (tokens, errs) = lex(source);
-        dbg!(&tokens);
-        assert!(errs.is_empty());
+        let results = lex(source);
+        dbg!(&results);
+        // TODO: Print all errors; return the first one (or all of them?).
+        let tokens: Vec<Token> = results.into_iter().map(Result::unwrap).collect();
 
         let (expr, rest) = parse::parse_expr(&tokens)?;
         dbg!(&expr);

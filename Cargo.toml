@@ -5,13 +5,10 @@ edition = "2018"
 repository = "https://github.com/sourcefrog/mbplox"
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0.44"
 argh = "0.1.6"
 itertools = "0.10.1"
-sysexit = "0.2.0"
 
 [dev-dependencies]
 assert_cmd = "2.0.1"

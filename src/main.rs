@@ -40,7 +40,7 @@ fn main() -> Result<()> {
         eprintln!(
             "error: repl is not implemented yet: suppply either a source file name or --eval arguments"
         );
-        std::process::exit(sysexit::Code::Usage as i32);
+        std::process::exit(ExitCode::Usage as i32);
     }
     if let Some(path) = &args.file {
         all_sources.push(fs::read_to_string(path).context("read source file")?);
@@ -65,4 +65,10 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Semantic exit codes, aligned with `<sysexits.h>`.
+// Not from the Rust `sysexits` crate because it currently does not build on Windows.
+enum ExitCode {
+    Usage = 64,
 }

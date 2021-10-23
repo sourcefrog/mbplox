@@ -1,0 +1,6 @@
+# So the text can count on seeing just LFs.
+multi_line_string.lox			eol=lf
+# Tests for literals containing CRLF.
+multi_line_crlf.lox			eol=crlf
+
+# vim: noet ts=8
